@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерфейс оператора крана КРАН-2000</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #3498db;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --text: #ecf0f1;
+            --text-secondary: #bdc3c7;
+            --bg: #1a1a1a;
+            --panel-bg: #2b2b2b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Верхняя панель */
+        .top-bar {
+            background-color: var(--primary);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent);
+            position: relative;
+        }
+
+        .title {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .status {
+            display: flex;
+            gap: 20px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .status-ok {
+            background-color: var(--success);
+        }
+
+        .status-warning {
+            background-color: var(--warning);
+        }
+
+        .status-danger {
+            background-color: var(--danger);
+        }
+
+        /* Основной контейнер */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        /* Левая панель - критические параметры */
+        .critical-panel {
+            width: 300px;
+            background-color: var(--secondary);
+            border-radius: 5px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .panel-section {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            padding: 10px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--accent);
+        }
+
+        /* Индикатор нагрузки */
+        .load-container {
+            margin-bottom: 15px;
+        }
+
+        .load-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .load-meter {
+            width: 100%;
+            height: 20px;
+            background-color: var(--bg);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .load-progress {
+            height: 100%;
+            background-color: var(--success);
+            width: 83%;
+            transition: width 0.3s, background-color 0.3s;
+        }
+
+        .load-critical {
+            background-color: var(--danger);
+        }
+
+        .load-warning {
+            background-color: var(--warning);
+        }
+
+        .load-alert {
+            color: var(--danger);
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            display: none;
+        }
+
+        /* Список систем */
+        .systems-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .system-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            background-color: rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .system-control:hover {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .system-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .system-switch {
+            position: relative;
+            width: 40px;
+            height: 20px;
+        }
+
+        .system-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            border-radius: 20px;
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            border-radius: 50%;
+            transition: .4s;
+        }
+
+        input:checked + .slider {
+            background-color: var(--success);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .system-status {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .system-status.active {
+            color: var(--success);
+        }
+
+        .system-status.inactive {
+            color: var(--danger);
+        }
+
+        /* Датчики */
+        .sensors-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sensor-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            background-color: rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+
+        .sensor-name {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .sensor-value {
+            font-weight: bold;
+        }
+
+        .swing-meter {
+            width: 100%;
+            height: 20px;
+            background: linear-gradient(to right, var(--success), var(--warning), var(--danger));
+            border-radius: 10px;
+            margin-bottom: 5px;
+            position: relative;
+        }
+
+        .swing-marker {
+            position: absolute;
+            top: -5px;
+            width: 2px;
+            height: 30px;
+            background-color: white;
+        }
+
+        .swing-value {
+            font-weight: bold;
+        }
+
+        /* Центральная область - визуализация */
+        .visualization-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .visualization-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--secondary);
+        }
+
+        .vis-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            user-select: none;
+        }
+
+        .vis-tab.active {
+            border-bottom-color: var(--accent);
+            font-weight: bold;
+        }
+
+        .visualization-content {
+            flex: 1;
+            background-color: var(--panel-bg);
+            border-radius: 0 5px 5px 5px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .vis-panel {
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+
+        .vis-panel.active {
+            display: block;
+        }
+
+        canvas {
+            display: block;
+            background-color: var(--panel-bg);
+        }
+
+        /* Блок безопасности */
+        .safety-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+        }
+
+        .safety-title {
+            color: var(--accent);
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        /* Правая панель - уведомления */
+        .notifications-panel {
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .notifications-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--secondary);
+        }
+
+        .notif-tab {
+            padding: 8px 15px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            user-select: none;
+            font-size: 0.9rem;
+        }
+
+        .notif-tab.active {
+            border-bottom-color: var(--accent);
+            font-weight: bold;
+        }
+
+        /* Аварийные сообщения */
+        .emergency-alerts {
+            background-color: var(--secondary);
+            border-radius: 5px;
+            padding: 15px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .emergency-alerts.active {
+            display: flex;
+        }
+
+        .alert-item {
+            background-color: rgba(231, 76, 60, 0.2);
+            border-left: 3px solid var(--danger);
+            padding: 10px;
+            border-radius: 0 5px 5px 0;
+            animation: blink 1s infinite;
+        }
+
+        .alert-title {
+            color: var(--danger);
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .alert-time {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .alert-btn {
+            background-color: var(--danger);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin-top: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        /* Рекомендации */
+        .recommendations {
+            background-color: var(--secondary);
+            border-radius: 5px;
+            padding: 15px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .recommendations.active {
+            display: flex;
+        }
+
+        .recommendation {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .recommendation:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .recommendation.warning {
+            color: var(--warning);
+        }
+
+        /* Журнал событий */
+        .event-log {
+            background-color: var(--secondary);
+            border-radius: 5px;
+            padding: 15px;
+            flex: 1;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .event-log.active {
+            display: block;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+        }
+
+        .log-entry.warning {
+            color: var(--warning);
+        }
+
+        .log-entry.danger {
+            color: var(--danger);
+        }
+
+        /* Нижняя панель */
+        .footer {
+            background-color: var(--primary);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            border-top: 2px solid var(--accent);
+            font-size: 0.9rem;
+        }
+
+        /* Управление камерой */
+        .camera-controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .camera-btn {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .camera-row {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        /* Анимации */
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .blink {
+            animation: blink 1s infinite;
+        }
+
+        /* Подсказки */
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip {
+            visibility: hidden;
+            width: 200px;
+            background-color: var(--primary);
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 100;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.8rem;
+            pointer-events: none;
+        }
+
+        .tooltip-container:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Иконки систем */
+        .system-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            background-color: var(--success);
+        }
+
+        .system-icon.warning {
+            background-color: var(--warning);
+        }
+
+        .system-icon.danger {
+            background-color: var(--danger);
+        }
+
+        /* Меню пользователя */
+        .user-menu {
+            position: absolute;
+            top: 100%;
+            right: 20px;
+            background-color: var(--primary);
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            display: none;
+            flex-direction: column;
+            min-width: 150px;
+            z-index: 1000;
+        }
+
+        .user-menu.active {
+            display: flex;
+        }
+
+        .user-menu-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .user-menu-item:hover {
+            background-color: var(--accent);
+        }
+
+        .user-menu-item.logout {
+            color: var(--danger);
+        }
+
+        .user-menu-item.logout:hover {
+            background-color: var(--danger);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Верхняя панель -->
+    <div class="top-bar">
+        <div class="title">КРАН-2000 | Режим работы: <span id="system-mode">НОРМАЛЬНЫЙ</span></div>
+        <div class="status">
+            <div class="status-item">
+                <div class="status-indicator status-ok" id="system-status-icon"></div>
+                <span id="system-status">СИСТЕМА АКТИВНА</span>
+            </div>
+            <div class="status-item">
+                <div class="status-indicator status-ok"></div>
+                <span id="system-time">ВРЕМЯ: 14:45:23</span>
+            </div>
+        </div>
+        <div class="status-item" id="user-menu-trigger">
+            <span>ОПЕРАТОР: ИВАНОВ А.П. ▼ </span>
+            <div class="user-menu" id="user-menu">
+                <div class="user-menu-item">Профиль</div>
+                <div class="user-menu-item">Настройки</div>
+                <div class="user-menu-item logout" id="logout-btn">Выход</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной контейнер -->
+    <div class="main-container">
+        <!-- Левая панель - критические параметры -->
+        <div class="critical-panel">
+            <!-- Грузоподъемность -->
+            <div class="panel-section">
+                <div class="section-title">ГРУЗОПОДЪЕМНОСТЬ</div>
+                <div class="load-container">
+                    <div class="load-header">
+                        <span>Текущий вес:</span>
+                        <span id="load-value">12.5 / 15.0 т</span>
+                    </div>
+                    <div class="load-meter">
+                        <div class="load-progress" id="load-progress"></div>
+                    </div>
+                    <div class="load-alert" id="load-alert">МАКСИМАЛЬНАЯ НАГРУЗКА! СНИЗЬТЕ ВЕС</div>
+                </div>
+            </div>
+
+            <!-- Статус систем -->
+            <div class="panel-section">
+                <div class="section-title">УПРАВЛЕНИЕ СИСТЕМАМИ</div>
+                <div class="systems-list">
+                    <label class="system-control" id="stab-control">
+                        <div class="system-info">
+                            <div class="system-icon" id="stab-icon">S</div>
+                            <div>
+                                <div>Стабилизация груза</div>
+                                <div class="system-status active" id="stab-status">Активна</div>
+                            </div>
+                        </div>
+                        <label class="system-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <div class="tooltip-container">
+                            <div class="tooltip">Автоматически стабилизирует груз при раскачивании</div>
+                        </div>
+                    </label>
+
+                    <label class="system-control" id="swing-control">
+                        <div class="system-info">
+                            <div class="system-icon" id="swing-icon">R</div>
+                            <div>
+                                <div>Защита от раскачивания</div>
+                                <div class="system-status active" id="swing-status">Активна</div>
+                            </div>
+                        </div>
+                        <label class="system-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <div class="tooltip-container">
+                            <div class="tooltip">Ограничивает скорость при обнаружении раскачивания</div>
+                        </div>
+                    </label>
+
+                    <label class="system-control" id="collision-control">
+                        <div class="system-info">
+                            <div class="system-icon" id="collision-icon">C</div>
+                            <div>
+                                <div>Защита от столкновений</div>
+                                <div class="system-status active" id="collision-status">Активна</div>
+                            </div>
+                        </div>
+                        <label class="system-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <div class="tooltip-container">
+                            <div class="tooltip">Обнаруживает препятствия в радиусе 5 метров</div>
+                        </div>
+                    </label>
+
+                    <label class="system-control" id="zone-control">
+                        <div class="system-info">
+                            <div class="system-icon" id="zone-icon">Z</div>
+                            <div>
+                                <div>Координатная защита</div>
+                                <div class="system-status active" id="zone-status">Активна</div>
+                            </div>
+                        </div>
+                        <label class="system-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <div class="tooltip-container">
+                            <div class="tooltip">Контролирует перемещение в заданной рабочей зоне</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Данные с датчиков -->
+            <div class="panel-section">
+                <div class="section-title">ДАННЫЕ С ДАТЧИКОВ</div>
+                <div class="sensors-container">
+                    <div class="sensor-item">
+                        <div class="sensor-name tooltip-container">
+                            <span>Скорость крана:</span>
+                            <div class="tooltip">Текущая скорость перемещения крана по рельсам (м/с)</div>
+                        </div>
+                        <span class="sensor-value" id="crane-speed">0.5 м/с</span>
+                    </div>
+                    <div class="sensor-item">
+                        <div class="sensor-name tooltip-container">
+                            <span>Скорость ветра:</span>
+                            <div class="tooltip">Текущая скорость ветра на высоте груза (м/с)</div>
+                        </div>
+                        <span class="sensor-value" id="wind-speed">15.0 м/с</span>
+                    </div>
+                    <div class="sensor-item">
+                        <div class="sensor-name tooltip-container">
+                            <span>Температура двигателя:</span>
+                            <div class="tooltip">Температура главного подъемного двигателя (°C)</div>
+                        </div>
+                        <span class="sensor-value" id="engine-temp">72.0°C</span>
+                    </div>
+                    <div class="sensor-item">
+                        <div class="sensor-name tooltip-container">
+                            <span>Напряжение сети:</span>
+                            <div class="tooltip">Напряжение в электросети крана (В)</div>
+                        </div>
+                        <span class="sensor-value" id="voltage">380.0 В</span>
+                    </div>
+                    <div class="sensor-item">
+                        <div class="sensor-name tooltip-container">
+                            <span>Износ троса:</span>
+                            <div class="tooltip">Процент износа основного подъемного троса (%)</div>
+                        </div>
+                        <span class="sensor-value" id="rope-wear">90.0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Центральная область - визуализация -->
+        <div class="visualization-area">
+            <div class="visualization-tabs">
+                <div class="vis-tab active" data-tab="protection">Защита от столкновений</div>
+                <div class="vis-tab" data-tab="coordinates">Координатная защита</div>
+                <div class="vis-tab" data-tab="camera">Видеонаблюдение</div>
+                <div class="vis-tab" data-tab="visualization">Визуализация крана</div>
+            </div>
+
+            <div class="visualization-content">
+                <!-- Защита от столкновений -->
+                <div class="vis-panel active" id="protection-panel">
+                    <canvas id="collision-canvas"></canvas>
+                    <div class="safety-info">
+                        <div class="safety-title">ЗАЩИТА ОТ СТОЛКНОВЕНИЙ</div>
+                        <div>Система отслеживает препятствия в радиусе 5 м</div>
+                        <div id="nearest-obstacle">Ближайшее препятствие: Балка (2.3 м)</div>
+                    </div>
+                </div>
+
+                <!-- Координатная защита -->
+                <div class="vis-panel" id="coordinates-panel">
+                    <canvas id="zone-canvas"></canvas>
+                    <div class="safety-info">
+                        <div class="safety-title">КООРДИНАТНАЯ ЗАЩИТА</div>
+                        <div>Рабочая зона: 20x20 м</div>
+                        <div id="zone-warning"></div>
+                    </div>
+                </div>
+
+                <!-- Видеонаблюдение -->
+                <div class="vis-panel" id="camera-panel">
+                    <canvas id="camera-canvas"></canvas>
+                    <div class="safety-info">
+                        <div class="safety-title">КАМЕРА 1 - ВИД НА ГРУЗ</div>
+                        <div>Статус: Активна</div>
+                    </div>
+                    <div class="camera-controls">
+                        <div class="camera-row">
+                            <button class="camera-btn" id="camera-up">↑</button>
+                        </div>
+                        <div class="camera-row">
+                            <button class="camera-btn" id="camera-left">←</button>
+                            <button class="camera-btn" id="camera-center">•</button>
+                            <button class="camera-btn" id="camera-right">→</button>
+                        </div>
+                        <div class="camera-row">
+                            <button class="camera-btn" id="camera-down">↓</button>
+                        </div>
+                        <div class="camera-row">
+                            <button class="camera-btn" id="camera-zoom-in">+</button>
+                            <button class="camera-btn" id="camera-zoom-out">-</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Визуализация крана -->
+                <div class="vis-panel" id="visualization-panel">
+                    <canvas id="crane-canvas"></canvas>
+                    <div class="safety-info">
+                        <div class="safety-title">СХЕМА КРАНА</div>
+                        <div>Статус: Все системы в норме</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Правая панель - уведомления -->
+        <div class="notifications-panel">
+            <div class="notifications-tabs">
+                <div class="notif-tab active" data-tab="alerts">Аварийные</div>
+                <div class="notif-tab" data-tab="recommendations">Рекомендации</div>
+                <div class="notif-tab" data-tab="log">Журнал</div>
+            </div>
+
+            <!-- Аварийные сообщения -->
+            <div class="emergency-alerts active" id="emergency-alerts">
+                <div class="alert-item">
+                    <div class="alert-title">
+                        <span>ПЕРЕГРУЗКА!</span>
+                        <span class="alert-time">14:30</span>
+                    </div>
+                    <div>Текущий вес: 14.2/15.0 т</div>
+                    <div>Немедленно остановите кран</div>
+                    <button class="alert-btn">ПРИНЯТЬ</button>
+                </div>
+            </div>
+
+            <!-- Рекомендации -->
+            <div class="recommendations" id="recommendations-panel">
+                <div class="recommendation warning">Высокая скорость ветра (15.0 м/с). Уменьшите высоту подъема</div>
+                <div class="recommendation warning">Износ троса 90.0%. Избегайте резких движений</div>
+                <div class="recommendation">Проверьте крепление груза перед подъемом</div>
+            </div>
+
+            <!-- Журнал событий -->
+            <div class="event-log" id="event-log-panel">
+                <div class="log-entry danger">14:30 — Перегрузка! Снизьте вес</div>
+                <div class="log-entry warning">14:28 — Высокая скорость ветра: 15.0 м/с</div>
+                <div class="log-entry">14:25 — Защита от столкновений активирована</div>
+                <div class="log-entry">14:20 — Стабилизация груза включена</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Нижняя панель -->
+    <div class="footer">
+        <div>Высота груза: <span id="hook-height">12.7 м</span></div>
+        <div>Угол отклонения: <span id="swing-angle">7°</span></div>
+        <div>Стабилизация: <span id="stabilization-status">активна</span></div>
+        <div>Время работы: <span id="operation-time">00:05:23</span></div>
+    </div>
+
+    <script>
+        // Состояние системы
+        const systemState = {
+            load: {
+                current: 12.5,
+                max: 15.0,
+                percent: 83.3
+            },
+            systems: {
+                stabilization: true,
+                swingProtection: true,
+                collisionProtection: true,
+                zoneProtection: true
+            },
+            sensors: {
+                craneSpeed: 0.5,
+                windSpeed: 15.0,
+                engineTemp: 72.0,
+                voltage: 380.0,
+                ropeWear: 90.0,
+                hookHeight: 12.7
+            },
+            obstacles: [
+                { name: "Балка", distance: 2.3, direction: 30 },
+                { name: "Столб", distance: 3.1, direction: -45 },
+                { name: "Стена", distance: 4.5, direction: 90 }
+            ],
+            zoneWarning: null,
+            emergencyAlerts: [
+                {
+                    type: "overload",
+                    message: "ПЕРЕГРУЗКА!",
+                    details: "Текущий вес: 14.2/15.0 т",
+                    action: "Немедленно остановите кран",
+                    time: "14:30",
+                    acknowledged: false
+                }
+            ],
+            recommendations: [
+                { text: "Высокая скорость ветра (15.0 м/с). Уменьшите высоту подъема", level: "warning" },
+                { text: "Износ троса 90.0%. Избегайте резких движений", level: "warning" },
+                { text: "Проверьте крепление груза перед подъемом", level: "info" }
+            ],
+            events: [
+                { text: "Перегрузка! Снизьте вес", level: "danger", time: "14:30" },
+                { text: "Высокая скорость ветра: 15.0 м/с", level: "warning", time: "14:28" },
+                { text: "Защита от столкновений активирована", level: "info", time: "14:25" },
+                { text: "Стабилизация груза включена", level: "info", time: "14:20" }
+            ],
+            visualization: {
+                activeTab: "protection"
+            },
+            camera: {
+                angleX: 0,
+                angleY: 0,
+                zoom: 1
+            },
+            operationStartTime: Date.now(),
+            activeNotifTab: "alerts"
+        };
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            // Инициализация канвасов
+            initCanvases();
+
+            // Настройка обработчиков событий
+            setupEventHandlers();
+
+            // Обновление интерфейса
+            updateInterface();
+
+            // Запуск обновления времени
+            updateTime();
+            updateOperationTime();
+
+            // Имитация работы системы
+            simulateSystem();
+        });
+
+        // Инициализация канвасов
+        function initCanvases() {
+            const canvases = [
+                'collision-canvas',
+                'zone-canvas',
+                'camera-canvas',
+                'crane-canvas'
+            ];
+
+            canvases.forEach(id => {
+                const canvas = document.getElementById(id);
+                const container = canvas.parentElement;
+                canvas.width = container.clientWidth;
+                canvas.height = container.clientHeight;
+            });
+
+            // Первоначальная отрисовка
+            drawCollisionMap();
+            drawZoneMap();
+            drawCameraView();
+            drawCraneVisualization();
+        }
+
+        // Настройка обработчиков событий
+        function setupEventHandlers() {
+            // Меню пользователя
+            const userMenuTrigger = document.getElementById('user-menu-trigger');
+            const userMenu = document.getElementById('user-menu');
+            const logoutBtn = document.getElementById('logout-btn');
+
+            userMenuTrigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                userMenu.classList.toggle('active');
+            });
+
+            logoutBtn.addEventListener('click', function() {
+                window.location.href = 'login.html';
+            });
+
+            // Закрытие меню при клике вне его
+            document.addEventListener('click', function() {
+                userMenu.classList.remove('active');
+            });
+
+            // Переключение вкладок визуализации
+            document.querySelectorAll('.vis-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Убираем активный класс у всех вкладок
+                    document.querySelectorAll('.vis-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.vis-panel').forEach(p => p.classList.remove('active'));
+
+                    // Добавляем активный класс текущей вкладке
+                    this.classList.add('active');
+                    const tabId = this.getAttribute('data-tab');
+                    document.getElementById(`${tabId}-panel`).classList.add('active');
+                    systemState.visualization.activeTab = tabId;
+                });
+            });
+
+            // Переключение вкладок уведомлений
+            document.querySelectorAll('.notif-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Убираем активный класс у всех вкладок
+                    document.querySelectorAll('.notif-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.emergency-alerts, .recommendations, .event-log').forEach(p => p.classList.remove('active'));
+
+                    // Добавляем активный класс текущей вкладке
+                    this.classList.add('active');
+                    const tabId = this.getAttribute('data-tab');
+
+                    if (tabId === 'alerts') {
+                        document.getElementById('emergency-alerts').classList.add('active');
+                    } else if (tabId === 'recommendations') {
+                        document.getElementById('recommendations-panel').classList.add('active');
+                    } else if (tabId === 'log') {
+                        document.getElementById('event-log-panel').classList.add('active');
+                    }
+
+                    systemState.activeNotifTab = tabId;
+                });
+            });
+
+            // Кнопки "Принять" в аварийных сообщениях
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('alert-btn')) {
+                    const alertItem = e.target.closest('.alert-item');
+                    const alertIndex = Array.from(document.querySelectorAll('.alert-item')).indexOf(alertItem);
+
+                    if (alertIndex !== -1) {
+                        systemState.emergencyAlerts[alertIndex].acknowledged = true;
+                        systemState.emergencyAlerts.splice(alertIndex, 1);
+                        updateEmergencyAlerts();
+                    }
+                }
+            });
+
+            // Управление камерой
+            document.getElementById('camera-up').addEventListener('click', () => {
+                systemState.camera.angleY = Math.max(-30, systemState.camera.angleY - 5);
+                drawCameraView();
+            });
+
+            document.getElementById('camera-down').addEventListener('click', () => {
+                systemState.camera.angleY = Math.min(30, systemState.camera.angleY + 5);
+                drawCameraView();
+            });
+
+            document.getElementById('camera-left').addEventListener('click', () => {
+                systemState.camera.angleX = Math.max(-30, systemState.camera.angleX - 5);
+                drawCameraView();
+            });
+
+            document.getElementById('camera-right').addEventListener('click', () => {
+                systemState.camera.angleX = Math.min(30, systemState.camera.angleX + 5);
+                drawCameraView();
+            });
+
+            document.getElementById('camera-center').addEventListener('click', () => {
+                systemState.camera.angleX = 0;
+                systemState.camera.angleY = 0;
+                drawCameraView();
+            });
+
+            document.getElementById('camera-zoom-in').addEventListener('click', () => {
+                systemState.camera.zoom = Math.min(2, systemState.camera.zoom + 0.1);
+                drawCameraView();
+            });
+
+            document.getElementById('camera-zoom-out').addEventListener('click', () => {
+                systemState.camera.zoom = Math.max(0.5, systemState.camera.zoom - 0.1);
+                drawCameraView();
+            });
+
+            // Обработчики переключателей систем
+            document.querySelectorAll('.system-control').forEach(control => {
+                const checkbox = control.querySelector('input[type="checkbox"]');
+                checkbox.addEventListener('change', function() {
+                    const systemId = control.id.replace('-control', '');
+                    systemState.systems[systemId] = this.checked;
+                    updateSystemStatus();
+                    addSystemEvent(getSystemName(systemId), this.checked);
+                });
+            });
+
+            // Обработка изменения размеров окна
+            window.addEventListener('resize', function() {
+                initCanvases();
+                redrawActiveCanvas();
+            });
+        }
+
+        // Получение имени системы по ID
+        function getSystemName(systemId) {
+            const names = {
+                'stab': 'Стабилизация груза',
+                'swing': 'Защита от раскачивания',
+                'collision': 'Защита от столкновений',
+                'zone': 'Координатная защита'
+            };
+            return names[systemId] || systemId;
+        }
+
+        // Добавление события о изменении состояния системы
+        function addSystemEvent(systemName, isActive) {
+            const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            systemState.events.unshift({
+                text: `${systemName} ${isActive ? 'включена' : 'отключена'}`,
+                level: "info",
+                time: time
+            });
+
+            if (systemState.events.length > 10) {
+                systemState.events.pop();
+            }
+        }
+
+        // Обновление интерфейса
+        function updateInterface() {
+            // Грузоподъемность
+            updateLoadIndicator();
+
+            // Статус систем
+            updateSystemStatus();
+
+            // Датчики
+            updateSensors();
+
+            // Аварийные сообщения
+            updateEmergencyAlerts();
+
+            // Рекомендации
+            updateRecommendations();
+
+            // Журнал событий
+            updateEventLog();
+
+            // Нижняя панель
+            updateFooter();
+
+            // Планируем следующее обновление
+            setTimeout(updateInterface, 1000);
+        }
+
+        // Обновление индикатора нагрузки
+        function updateLoadIndicator() {
+            const percent = (systemState.load.current / systemState.load.max * 100).toFixed(1);
+            systemState.load.percent = percent;
+
+            document.getElementById('load-value').textContent =
+                `${systemState.load.current.toFixed(1)} / ${systemState.load.max.toFixed(1)} т`;
+
+            const progress = document.getElementById('load-progress');
+            progress.style.width = `${percent}%`;
+
+            if (percent >= 95) {
+                progress.className = 'load-progress load-critical';
+                document.getElementById('load-alert').style.display = 'block';
+
+                // Добавляем аварийное сообщение, если его еще нет
+                if (!systemState.emergencyAlerts.some(a => a.type === "overload" && !a.acknowledged)) {
+                    const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    systemState.emergencyAlerts.unshift({
+                        type: "overload",
+                        message: "ПЕРЕГРУЗКА!",
+                        details: `Текущий вес: ${systemState.load.current.toFixed(1)}/${systemState.load.max.toFixed(1)} т`,
+                        action: "Немедленно остановите кран",
+                        time: time,
+                        acknowledged: false
+                    });
+
+                    // Добавляем событие в журнал
+                    systemState.events.unshift({
+                        text: `Перегрузка! ${systemState.load.current.toFixed(1)}/${systemState.load.max.toFixed(1)} т`,
+                        level: "danger",
+                        time: time
+                    });
+
+                    // Ограничиваем количество событий
+                    if (systemState.events.length > 10) {
+                        systemState.events.pop();
+                    }
+                }
+            } else if (percent >= 90) {
+                progress.className = 'load-progress load-warning';
+                document.getElementById('load-alert').style.display = 'none';
+            } else {
+                progress.className = 'load-progress';
+                document.getElementById('load-alert').style.display = 'none';
+            }
+        }
+
+        // Обновление статуса систем
+        function updateSystemStatus() {
+            // Обновление иконок и статусов
+            updateSystemControl('stab', systemState.systems.stabilization);
+            updateSystemControl('swing', systemState.systems.swingProtection);
+            updateSystemControl('collision', systemState.systems.collisionProtection);
+            updateSystemControl('zone', systemState.systems.zoneProtection);
+
+            // Общий статус системы
+            if (systemState.load.percent >= 95 || systemState.sensors.engineTemp > 90) {
+                document.getElementById('system-status-icon').className = 'status-indicator status-danger blink';
+                document.getElementById('system-status').textContent = 'АВАРИЙНЫЙ РЕЖИМ';
+                document.getElementById('system-mode').textContent = 'АВАРИЙНЫЙ';
+                document.getElementById('system-mode').style.color = 'var(--danger)';
+            } else if (systemState.load.percent >= 90 || systemState.sensors.engineTemp > 80) {
+                document.getElementById('system-status-icon').className = 'status-indicator status-warning';
+                document.getElementById('system-status').textContent = 'ПРЕДУПРЕЖДЕНИЕ';
+                document.getElementById('system-mode').textContent = 'ПРЕДУПРЕЖДЕНИЕ';
+                document.getElementById('system-mode').style.color = 'var(--warning)';
+            } else {
+                document.getElementById('system-status-icon').className = 'status-indicator status-ok';
+                document.getElementById('system-status').textContent = 'СИСТЕМА АКТИВНА';
+                document.getElementById('system-mode').textContent = 'НОРМАЛЬНЫЙ';
+                document.getElementById('system-mode').style.color = 'var(--success)';
+            }
+        }
+
+        // Обновление элемента управления системой
+        function updateSystemControl(prefix, isActive) {
+            const icon = document.getElementById(`${prefix}-icon`);
+            const status = document.getElementById(`${prefix}-status`);
+            const checkbox = document.querySelector(`#${prefix}-control input[type="checkbox"]`);
+
+            icon.className = isActive ? 'system-icon' : 'system-icon danger';
+            status.textContent = isActive ? 'Активна' : 'Отключена';
+            status.className = isActive ? 'system-status active' : 'system-status inactive';
+            if (checkbox) checkbox.checked = isActive;
+        }
+
+        // Обновление показаний датчиков
+        function updateSensors() {
+            document.getElementById('crane-speed').textContent = `${systemState.sensors.craneSpeed.toFixed(1)} м/с`;
+            document.getElementById('wind-speed').textContent = `${systemState.sensors.windSpeed.toFixed(1)} м/с`;
+            document.getElementById('engine-temp').textContent = `${systemState.sensors.engineTemp.toFixed(1)}°C`;
+            document.getElementById('voltage').textContent = `${systemState.sensors.voltage.toFixed(1)} В`;
+            document.getElementById('rope-wear').textContent = `${systemState.sensors.ropeWear.toFixed(1)}%`;
+        }
+
+        // Обновление аварийных сообщений
+        function updateEmergencyAlerts() {
+            const container = document.getElementById('emergency-alerts');
+            container.innerHTML = '';
+
+            systemState.emergencyAlerts
+                .filter(alert => !alert.acknowledged)
+                .forEach(alert => {
+                    const alertElement = document.createElement('div');
+                    alertElement.className = 'alert-item';
+                    alertElement.innerHTML = `
+                        <div class="alert-title">
+                            <span>${alert.message}</span>
+                            <span class="alert-time">${alert.time}</span>
+                        </div>
+                        <div>${alert.details}</div>
+                        <div>${alert.action}</div>
+                        <button class="alert-btn">ПРИНЯТЬ</button>
+                    `;
+                    container.appendChild(alertElement);
+                });
+        }
+
+        // Обновление рекомендаций
+        function updateRecommendations() {
+            const container = document.getElementById('recommendations-panel');
+            container.innerHTML = '';
+
+            systemState.recommendations.forEach(rec => {
+                const div = document.createElement('div');
+                div.className = `recommendation ${rec.level === "warning" ? "warning" : ""}`;
+                div.textContent = rec.text;
+                container.appendChild(div);
+            });
+        }
+
+        // Обновление журнала событий
+        function updateEventLog() {
+            const container = document.getElementById('event-log-panel');
+            container.innerHTML = '';
+
+            systemState.events.forEach(event => {
+                const div = document.createElement('div');
+                div.className = `log-entry ${event.level}`;
+                div.textContent = `${event.time} — ${event.text}`;
+                container.appendChild(div);
+            });
+        }
+
+        // Обновление нижней панели
+        function updateFooter() {
+            document.getElementById('hook-height').textContent = `${systemState.sensors.hookHeight.toFixed(1)} м`;
+            document.getElementById('swing-angle').textContent = `${systemState.sensors.swingAngle.toFixed(1)}°`;
+            document.getElementById('stabilization-status').textContent =
+                systemState.systems.stabilization ? 'активна' : 'неактивна';
+        }
+
+        // Обновление времени
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            document.getElementById('system-time').textContent = `ВРЕМЯ: ${timeStr}`;
+            setTimeout(updateTime, 1000);
+        }
+
+        // Обновление времени работы
+        function updateOperationTime() {
+            const now = Date.now();
+            const diff = now - systemState.operationStartTime;
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('operation-time').textContent = timeStr;
+
+            setTimeout(updateOperationTime, 1000);
+        }
+
+        // Отрисовка карты столкновений
+        function drawCollisionMap() {
+            const canvas = document.getElementById('collision-canvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = Math.min(width, height) / 2 - 30;
+
+            // Очистка
+            ctx.clearRect(0, 0, width, height);
+
+            // Фон
+            ctx.fillStyle = '#2b2b2b';
+            ctx.fillRect(0, 0, width, height);
+
+            // Круги расстояний
+            ctx.strokeStyle = '#3e3e3e';
+            ctx.lineWidth = 1;
+            for (let i = 1; i <= 5; i++) {
+                const r = radius * (i / 5);
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Подписи расстояний
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${i} м`, centerX, centerY - r + 15);
+            }
+
+            // Сектора направлений
+            for (let angle = 0; angle < 360; angle += 45) {
+                const rad = angle * Math.PI / 180;
+                const x = centerX + radius * Math.sin(rad);
+                const y = centerY - radius * Math.cos(rad);
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+
+                // Подписи направлений
+                const dirX = centerX + (radius + 15) * Math.sin(rad);
+                const dirY = centerY - (radius + 15) * Math.cos(rad);
+
+                const directions = {
+                    0: 'С', 45: 'СВ', 90: 'В', 135: 'ЮВ',
+                    180: 'Ю', 225: 'ЮЗ', 270: 'З', 315: 'СЗ'
+                };
+
+                ctx.fillText(directions[angle] || '', dirX, dirY);
+            }
+
+            // Препятствия
+            let nearestObstacle = null;
+            let minDistance = Infinity;
+
+            systemState.obstacles.forEach(obstacle => {
+                const angleRad = obstacle.direction * Math.PI / 180;
+                const distancePercent = Math.min(obstacle.distance / 5, 1);
+                const r = radius * distancePercent;
+                const x = centerX + r * Math.sin(angleRad);
+                const y = centerY - r * Math.cos(angleRad);
+
+                // Определяем ближайшее препятствие
+                if (obstacle.distance < minDistance) {
+                    minDistance = obstacle.distance;
+                    nearestObstacle = obstacle;
+                }
+
+                // Цвет в зависимости от расстояния
+                if (obstacle.distance < 2) {
+                    ctx.fillStyle = 'var(--danger)';
+                } else if (obstacle.distance < 3) {
+                    ctx.fillStyle = 'var(--warning)';
+                } else {
+                    ctx.fillStyle = 'var(--success)';
+                }
+
+                // Точка препятствия
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Обводка для критических расстояний
+                if (obstacle.distance < 2) {
+                    ctx.strokeStyle = 'var(--danger)';
+                    ctx.setLineDash([3, 3]);
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 15, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Текст с названием и расстоянием
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${obstacle.name}: ${obstacle.distance.toFixed(1)} м`, x, y + 25);
+            });
+
+            // Обновляем информацию о ближайшем препятствии
+            if (nearestObstacle) {
+                document.getElementById('nearest-obstacle').textContent =
+                    `Ближайшее препятствие: ${nearestObstacle.name} (${nearestObstacle.distance.toFixed(1)} м)`;
+            }
+
+            // Центральная точка - кран
+            ctx.fillStyle = '#3498db';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 10, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Отрисовка карты зоны
+        function drawZoneMap() {
+            const canvas = document.getElementById('zone-canvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Очистка
+            ctx.clearRect(0, 0, width, height);
+
+            // Фон
+            ctx.fillStyle = '#2b2b2b';
+            ctx.fillRect(0, 0, width, height);
+
+            // Рабочая зона
+            ctx.strokeStyle = '#2ecc71';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(width * 0.2, height * 0.2, width * 0.6, height * 0.6);
+
+            // Опасные зоны
+            ctx.strokeStyle = '#e74c3c';
+            ctx.setLineDash([5, 3]);
+            ctx.strokeRect(width * 0.1, height * 0.1, width * 0.2, height * 0.2);
+            ctx.strokeRect(width * 0.7, height * 0.7, width * 0.2, height * 0.2);
+            ctx.setLineDash([]);
+
+            // Кран
+            const craneX = width * 0.5;
+            const craneY = height * 0.5;
+            ctx.fillStyle = '#3498db';
+            ctx.beginPath();
+            ctx.arc(craneX, craneY, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Груз
+            const loadX = width * 0.6;
+            const loadY = height * 0.4;
+            ctx.fillStyle = '#f39c12';
+            ctx.beginPath();
+            ctx.arc(loadX, loadY, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Трос
+            ctx.strokeStyle = '#f39c12';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(craneX, craneY);
+            ctx.lineTo(loadX, loadY);
+            ctx.stroke();
+
+            // Траектория
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 3]);
+            ctx.beginPath();
+            ctx.moveTo(width * 0.3, height * 0.7);
+            ctx.lineTo(width * 0.4, height * 0.6);
+            ctx.lineTo(width * 0.5, height * 0.5);
+            ctx.lineTo(loadX, loadY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Подписи
+            ctx.fillStyle = 'white';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('РАБОЧАЯ ЗОНА', width / 2, height * 0.15);
+
+            ctx.font = '10px Arial';
+            ctx.fillText('Кран', craneX, craneY + 25);
+            ctx.fillText('Груз', loadX, loadY + 20);
+
+            // Предупреждение о зоне
+            if (systemState.zoneWarning) {
+                ctx.fillStyle = 'rgba(231, 76, 60, 0.5)';
+                ctx.fillRect(0, 0, width, height);
+
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(systemState.zoneWarning, width / 2, height / 2);
+            }
+        }
+
+        // Отрисовка вида камеры
+        function drawCameraView() {
+            const canvas = document.getElementById('camera-canvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Очистка
+            ctx.clearRect(0, 0, width, height);
+
+            // Фон
+            ctx.fillStyle = '#3e3e3e';
+            ctx.fillRect(0, 0, width, height);
+
+            // Груз
+            const centerX = width / 2 + systemState.camera.angleX * 5;
+            const centerY = height / 2 + systemState.camera.angleY * 5;
+            const size = 50 * systemState.camera.zoom;
+
+            ctx.fillStyle = '#95a5a6';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.stroke();
+
+            // Трос
+            ctx.strokeStyle = '#f39c12';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(centerX, 20);
+            ctx.lineTo(centerX, centerY - size);
+            ctx.stroke();
+
+            // Шум камеры
+            for (let i = 0; i < 50; i++) {
+                const x = Math.random() * width;
+                const y = Math.random() * height;
+                const s = 1 + Math.random() * 2;
+                const c = Math.floor(50 + Math.random() * 100);
+                ctx.fillStyle = `rgb(${c}, ${c}, ${c})`;
+                ctx.fillRect(x, y, s, s);
+            }
+        }
+
+        // Отрисовка визуализации крана
+        function drawCraneVisualization() {
+            const canvas = document.getElementById('crane-canvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Очистка
+            ctx.clearRect(0, 0, width, height);
+
+            // Фон
+            ctx.fillStyle = '#2b2b2b';
+            ctx.fillRect(0, 0, width, height);
+
+            // Основание крана
+            const baseX = width * 0.5;
+            const baseY = height * 0.8;
+            const baseWidth = 80;
+            const baseHeight = 20;
+
+            ctx.fillStyle = '#7f8c8d';
+            ctx.fillRect(baseX - baseWidth/2, baseY - baseHeight/2, baseWidth, baseHeight);
+
+            // Башня крана
+            const towerWidth = 20;
+            const towerHeight = 150;
+
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(baseX - towerWidth/2, baseY - towerHeight, towerWidth, towerHeight);
+
+            // Стрела крана
+            const armLength = 200;
+            const armAngle = -30 * Math.PI / 180;
+            const armThickness = 10;
+
+            ctx.fillStyle = '#3498db';
+            ctx.save();
+            ctx.translate(baseX, baseY - towerHeight);
+            ctx.rotate(armAngle);
+            ctx.fillRect(0, -armThickness/2, armLength, armThickness);
+            ctx.restore();
+
+            // Трос
+            const ropeEndX = baseX + armLength * Math.cos(armAngle);
+            const ropeEndY = baseY - towerHeight + armLength * Math.sin(armAngle);
+            const ropeLength = 120;
+
+            ctx.strokeStyle = '#f39c12';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(ropeEndX, ropeEndY);
+            ctx.lineTo(ropeEndX, ropeEndY + ropeLength);
+            ctx.stroke();
+
+            // Груз
+            const loadSize = 20;
+
+            ctx.fillStyle = '#f39c12';
+            ctx.beginPath();
+            ctx.arc(ropeEndX, ropeEndY + ropeLength, loadSize, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Подписи
+            ctx.fillStyle = 'white';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('2D ВИЗУАЛИЗАЦИЯ КРАНА', width / 2, 20);
+        }
+
+        // Перерисовка активного канваса
+        function redrawActiveCanvas() {
+            switch(systemState.visualization.activeTab) {
+                case 'protection':
+                    drawCollisionMap();
+                    break;
+                case 'coordinates':
+                    drawZoneMap();
+                    break;
+                case 'camera':
+                    drawCameraView();
+                    break;
+                case 'visualization':
+                    drawCraneVisualization();
+                    break;
+            }
+        }
+
+        // Имитация работы системы
+        function simulateSystem() {
+            setInterval(() => {
+                // Изменение нагрузки
+                systemState.load.current += (Math.random() > 0.5 ? 0.1 : -0.1);
+                systemState.load.current = Math.max(0, Math.min(systemState.load.max, systemState.load.current));
+
+                // Изменение скорости ветра
+                systemState.sensors.windSpeed += (Math.random() > 0.5 ? 0.5 : -0.5);
+                systemState.sensors.windSpeed = Math.max(5, Math.min(25, systemState.sensors.windSpeed));
+
+                // Изменение температуры двигателя
+                if (systemState.load.percent > 90) {
+                    systemState.sensors.engineTemp += 0.5;
+                } else {
+                    systemState.sensors.engineTemp -= 0.2;
+                }
+                systemState.sensors.engineTemp = Math.max(40, Math.min(110, systemState.sensors.engineTemp));
+
+                // Изменение высоты груза
+                systemState.sensors.hookHeight = (10 + Math.random() * 5).toFixed(1);
+
+                // Изменение расстояний до препятствий
+                systemState.obstacles.forEach(obs => {
+                    obs.distance += (Math.random() > 0.5 ? 0.1 : -0.1);
+                    obs.distance = Math.max(0.5, Math.min(5, obs.distance));
+                });
+
+                // Проверка на приближение к опасной зоне
+                if (Math.random() > 0.9) {
+                    systemState.zoneWarning = "ПРИБЛИЖЕНИЕ К ОПАСНОЙ ЗОНЕ!";
+                    setTimeout(() => {
+                        systemState.zoneWarning = null;
+                        drawZoneMap();
+                    }, 3000);
+                }
+
+                // Добавление случайных событий
+                if (Math.random() > 0.98) {
+                    const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    const events = [
+                        { text: "Автоматическая коррекция положения", level: "info" },
+                        { text: "Скачок напряжения в сети", level: "warning" },
+                        { text: "Проверка систем завершена", level: "info" }
+                    ];
+                    const event = events[Math.floor(Math.random() * events.length)];
+
+                    systemState.events.unshift({
+                        text: event.text,
+                        level: event.level,
+                        time: time
+                    });
+
+                    if (systemState.events.length > 10) {
+                        systemState.events.pop();
+                    }
+                }
+
+                // Перерисовка активного канваса
+                redrawActiveCanvas();
+
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

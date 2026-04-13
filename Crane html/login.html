@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ТехноКран Инжиниринг - Авторизация</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
+        }
+        .logo-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #2C1B0D;
+            font-weight: bold;
+            text-align: center;
+        }
+        .logo-main {
+            font-size: 28px;
+            line-height: 1;
+            letter-spacing: 1px;
+        }
+        .logo-sub {
+            font-size: 18px;
+            line-height: 1.2;
+            margin-top: 4px;
+        }
+        .role-selector input:checked + label {
+            border-color: #3b82f6;
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+        .input-field:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+        .shake {
+            animation: shake 0.5s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        .logo-image {
+            max-width: 250px;
+            width: 100%;
+            height: auto;
+            max-height: 80px;
+        }
+        .role-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .role-admin {
+            background-color: #EF4444;
+            color: white;
+        }
+        .role-operator {
+            background-color: #10B981;
+            color: white;
+        }
+        .role-engineer {
+            background-color: #3B82F6;
+            color: white;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center gradient-bg p-4">
+    <div class="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden">
+        <!-- Логотип -->
+        <div class="flex justify-center py-8">
+            <div class="flex justify-center py-8">
+                <div class="logo-container">
+                    <img src="../Logo1.png" alt="TEXHOKPAH ИНЖИНИРИНГ" class="logo-image">
+                </div>
+            </div>
+        </div>
+
+        <!-- Форма авторизации -->
+        <div class="px-8 pb-8">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Вход в систему</h2>
+
+            <form id="loginForm" class="space-y-6">
+                <!-- Поле логина -->
+                <div>
+                    <label for="login" class="block text-sm font-medium text-gray-700 mb-1">Логин</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-user text-gray-400"></i>
+                        </div>
+                        <input type="text" id="login" name="login" required
+                            class="input-field pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3 border"
+                            placeholder="Введите ваш логин">
+                    </div>
+                </div>
+
+                <!-- Поле пароля -->
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Пароль</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-lock text-gray-400"></i>
+                        </div>
+                        <input type="password" id="password" name="password" required
+                            class="input-field pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3 border"
+                            placeholder="Введите ваш пароль">
+                        <button type="button" id="togglePassword" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <i class="fas fa-eye text-gray-400 hover:text-gray-600"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Чекбокс "Запомнить меня" -->
+                <div class="flex items-center">
+                    <input id="remember" name="remember" type="checkbox"
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label for="remember" class="ml-2 block text-sm text-gray-700">Запомнить меня</label>
+                </div>
+
+                <!-- Кнопка входа -->
+                <div>
+                    <button type="submit" id="submitBtn"
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                        <span id="btnText">Войти</span>
+                        <i id="spinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                    </button>
+                </div>
+
+                <!-- Ссылка "Забыли пароль?" -->
+                <div class="text-center">
+                    <a href="#" class="text-sm text-blue-600 hover:text-blue-800">Забыли пароль?</a>
+                </div>
+
+                <!-- Тестовые пользователи -->
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">Тестовые пользователи:</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span>Администратор <span class="role-badge role-admin">admin</span></span>
+                            <span class="text-sm text-gray-600">admin / admin123</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>Оператор <span class="role-badge role-operator">operator</span></span>
+                            <span class="text-sm text-gray-600">operator / operator123</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>Инженер <span class="role-badge role-engineer">engineer</span></span>
+                            <span class="text-sm text-gray-600">engineer / engineer123</span>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordInput = document.getElementById('password');
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            const spinner = document.getElementById('spinner');
+
+            // База данных пользователей (в реальном приложении это должно быть на сервере)
+            const users = {
+                'admin': {
+                    password: 'admin123',
+                    role: 'admin',
+                    name: 'Администратор',
+                    redirect: 'admin.html'
+                },
+                'operator': {
+                    password: 'operator123',
+                    role: 'operator',
+                    name: 'Оператор',
+                    redirect: 'operator.html'
+                },
+                'engineer': {
+                    password: 'engineer123',
+                    role: 'engineer',
+                    name: 'Инженер',
+                    redirect: 'engineer.html'
+                }
+            };
+
+            // Переключение видимости пароля
+            togglePassword.addEventListener('click', function() {
+                const icon = this.querySelector('i');
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    icon.classList.replace('fa-eye', 'fa-eye-slash');
+                } else {
+                    passwordInput.type = 'password';
+                    icon.classList.replace('fa-eye-slash', 'fa-eye');
+                }
+            });
+
+            // Обработка формы
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                // Показать спиннер
+                btnText.textContent = 'Авторизация...';
+                spinner.classList.remove('hidden');
+                submitBtn.disabled = true;
+
+                // Имитация запроса на сервер
+                setTimeout(function() {
+                    const login = document.getElementById('login').value.trim();
+                    const password = document.getElementById('password').value.trim();
+                    const remember = document.getElementById('remember').checked;
+
+                    // Проверка пользователя
+                    if (users[login] && users[login].password === password) {
+                        // Успешная авторизация
+                        const user = users[login];
+
+                        // Сохраняем данные пользователя в sessionStorage
+                        sessionStorage.setItem('currentUser', JSON.stringify({
+                            login: login,
+                            name: user.name,
+                            role: user.role
+                        }));
+
+                        // Если выбрано "Запомнить меня", сохраняем логин
+                        if (remember) {
+                            localStorage.setItem('rememberLogin', 'true');
+                            localStorage.setItem('savedLogin', login);
+                        } else {
+                            localStorage.removeItem('rememberLogin');
+                            localStorage.removeItem('savedLogin');
+                        }
+
+                        // Перенаправляем на соответствующую страницу
+                        window.location.href = user.redirect;
+
+                    } else {
+                        // Ошибка авторизации
+                        loginForm.classList.add('shake');
+                        setTimeout(() => loginForm.classList.remove('shake'), 500);
+                        alert('Неверный логин или пароль!');
+                    }
+
+                    // Скрыть спиннер
+                    btnText.textContent = 'Войти';
+                    spinner.classList.add('hidden');
+                    submitBtn.disabled = false;
+                }, 1500);
+            });
+
+            // Сохранение логина при нажатии "Запомнить меня"
+            const rememberCheckbox = document.getElementById('remember');
+            const loginInput = document.getElementById('login');
+
+            // Проверяем, есть ли сохраненный логин
+            if (localStorage.getItem('rememberLogin') === 'true') {
+                rememberCheckbox.checked = true;
+                if (localStorage.getItem('savedLogin')) {
+                    loginInput.value = localStorage.getItem('savedLogin');
+                }
+            }
+
+            rememberCheckbox.addEventListener('change', function() {
+                if (this.checked && loginInput.value) {
+                    localStorage.setItem('rememberLogin', 'true');
+                    localStorage.setItem('savedLogin', loginInput.value);
+                } else {
+                    localStorage.removeItem('rememberLogin');
+                    localStorage.removeItem('savedLogin');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,2943 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ИТП - Управление парком кранов</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .gauge {
+            position: relative;
+            width: 100%;
+            height: 0;
+            padding-bottom: 50%;
+        }
+        .gauge-body {
+            width: 100%;
+            height: 0;
+            padding-bottom: 50%;
+            position: relative;
+            border-top-left-radius: 100% 200%;
+            border-top-right-radius: 100% 200%;
+            overflow: hidden;
+            background-color: #e0e0e0;
+        }
+        .gauge-fill {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform-origin: center top;
+            transform: rotate(0.5turn);
+            background-color: #3b82f6;
+        }
+        .gauge-cover {
+            width: 75%;
+            height: 0;
+            padding-bottom: 150%;
+            background-color: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 25%;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            animation: modalFadeIn 0.3s;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .sidebar-collapsed {
+            width: 70px !important;
+            overflow: hidden;
+            transition: width 0.3s ease;
+        }
+        .sidebar-collapsed .sidebar-text,
+        .sidebar-collapsed .logo-text,
+        .sidebar-collapsed h2 {
+            display: none !important;
+        }
+        .sidebar-collapsed .sidebar-icon {
+            justify-content: center !important;
+            margin-right: 0 !important;
+        }
+        .sidebar-collapsed .logo-icon {
+            justify-content: center !important;
+        }
+        .page {
+            display: none;
+        }
+        .page.active {
+            display: block;
+        }
+        .highlight-crane {
+            animation: highlight 2s ease;
+        }
+        @keyframes highlight {
+            0% { background-color: rgba(59, 130, 246, 0.3); }
+            100% { background-color: transparent; }
+        }
+
+        /* Стили для подсказок */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .tooltip .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Боковая панель навигации -->
+        <aside id="sidebar" class="w-64 bg-gray-800 text-white flex-shrink-0 transition-all duration-300 ease-in-out">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h1 class="text-xl font-bold flex items-center logo-icon">
+                    <i class="fas fa-cogs mr-2 sidebar-icon"></i>
+                    <span class="sidebar-text logo-text">ИТП Портал</span>
+                </h1>
+                <button id="toggleSidebar" class="text-gray-400 hover:text-white focus:outline-none tooltip" data-tooltip="Свернуть/развернуть меню">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            <nav class="p-4">
+                <div class="mb-6">
+                    <h2 class="text-gray-400 uppercase text-xs font-bold mb-2 sidebar-text">Основное</h2>
+                    <ul>
+                        <li class="mb-2">
+                            <a href="#" class="nav-link flex items-center p-2 rounded sidebar-icon" data-page="dashboard">
+                                <i class="fas fa-tachometer-alt mr-2 sidebar-icon"></i>
+                                <span class="sidebar-text">Обзор парка</span>
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="#" class="nav-link flex items-center p-2 rounded hover:bg-gray-700 sidebar-icon" data-page="analytics">
+                                <i class="fas fa-chart-line mr-2 sidebar-icon"></i>
+                                <span class="sidebar-text">Аналитика</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="mb-6">
+                    <h2 class="text-gray-400 uppercase text-xs font-bold mb-2 sidebar-text">Краны</h2>
+                    <ul>
+                        <li class="mb-2">
+                            <a href="#" class="nav-link flex items-center p-2 rounded hover:bg-gray-700 sidebar-icon" data-page="tech-state">
+                                <i class="fas fa-hard-hat mr-2 sidebar-icon"></i>
+                                <span class="sidebar-text">Техническое состояние</span>
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="#" class="nav-link flex items-center p-2 rounded hover:bg-gray-700 sidebar-icon" data-page="maintenance">
+                                <i class="fas fa-wrench mr-2 sidebar-icon"></i>
+                                <span class="sidebar-text">Обслуживание</span>
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="#" class="nav-link flex items-center p-2 rounded hover:bg-gray-700 sidebar-icon" data-page="reports">
+                                <i class="fas fa-file-alt mr-2 sidebar-icon"></i>
+                                <span class="sidebar-text">Отчеты</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="mb-6">
+                    <h2 class="text-gray-400 uppercase text-xs font-bold mb-2 sidebar-text">Инструменты</h2>
+                    <ul>
+                        <li class="mb-2">
+                            <a href="#" class="nav-link flex items-center p-2 rounded hover:bg-gray-700 sidebar-icon" data-page="diagnostics">
+                                <i class="fas fa-tools mr-2 sidebar-icon"></i>
+                                <span class="sidebar-text">Диагностика</span>
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="#" class="nav-link flex items-center p-2 rounded hover:bg-gray-700 sidebar-icon" data-page="settings">
+                                <i class="fas fa-cog mr-2 sidebar-icon"></i>
+                                <span class="sidebar-text">Настройки</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Основное содержимое -->
+        <div class="flex-1 overflow-auto">
+            <!-- Шапка с поиском и пользователем -->
+            <header class="bg-white shadow-sm p-4 flex justify-between items-center">
+                <div class="flex items-center">
+                    <button id="mobileToggleSidebar" class="mr-4 text-gray-600 focus:outline-none md:hidden tooltip" data-tooltip="Меню">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 class="text-xl font-semibold" id="pageTitle">Управление парком кранов</h2>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <input type="text" placeholder="Поиск..." class="pl-8 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="mr-3 text-right hidden md:block">
+                            <p class="font-medium">Иван Петров</p>
+                            <p class="text-sm text-gray-500">Инженер-механик</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold cursor-pointer tooltip" id="userMenuBtn" data-tooltip="Мой профиль">
+                            IP
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Меню пользователя -->
+            <div id="userMenu" class="hidden absolute right-4 mt-2 w-48 bg-white rounded-md shadow-lg z-50">
+                <div class="py-1">
+                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                        <i class="fas fa-user mr-2"></i> Профиль
+                    </a>
+                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                        <i class="fas fa-cog mr-2"></i> Настройки
+                    </a>
+                    <a href="login.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Выйти
+                    </a>
+                </div>
+            </div>
+
+            <!-- Содержимое страниц -->
+            <main class="p-6">
+                <!-- Страница панели управления -->
+                <div class="page active" id="dashboard-page">
+                    <!-- Карточки состояния -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                        <!-- Износ парка -->
+                        <div class="bg-white rounded-lg shadow p-6 tooltip" data-tooltip="Средний износ всех кранов в парке">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-gray-500">Износ парка</p>
+                                    <h3 class="text-3xl font-bold mt-1" id="parkWearValue">23%</h3>
+                                </div>
+                                <div class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                                    <i class="fas fa-check-circle mr-1"></i> Норма
+                                </div>
+                            </div>
+                            <div class="mt-4 h-2 bg-gray-200 rounded-full">
+                                <div class="h-2 bg-green-500 rounded-full" id="parkWearBar" style="width: 23%"></div>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-2">Средний показатель по парку</p>
+                        </div>
+
+                        <!-- Средняя нагрузка -->
+                        <div class="bg-white rounded-lg shadow p-6 tooltip" data-tooltip="Средняя нагрузка кранов за последнюю неделю">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-gray-500">Средняя нагрузка</p>
+                                    <h3 class="text-3xl font-bold mt-1" id="avgLoadValue">72%</h3>
+                                </div>
+                                <div class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i> Повышена
+                                </div>
+                            </div>
+                            <div class="mt-4 h-2 bg-gray-200 rounded-full">
+                                <div class="h-2 bg-yellow-500 rounded-full" id="avgLoadBar" style="width: 72%"></div>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-2">От нормативных 60%</p>
+                        </div>
+
+                        <!-- Текущие ремонты -->
+                        <div class="bg-white rounded-lg shadow p-6 tooltip" data-tooltip="Краны, находящиеся в ремонте">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-gray-500">Текущие ремонты</p>
+                                    <h3 class="text-3xl font-bold mt-1" id="currentRepairsValue">3</h3>
+                                </div>
+                                <div class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
+                                    <i class="fas fa-times-circle mr-1"></i> Внимание
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-600" id="repairCranesList">Краны: #12, #15, #18</p>
+                            </div>
+                        </div>
+
+                        <!-- Запчасти в пути -->
+                        <div class="bg-white rounded-lg shadow p-6 tooltip" data-tooltip="Запчасти, ожидаемые к доставке">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-gray-500">Запчастей в пути</p>
+                                    <h3 class="text-3xl font-bold mt-1" id="partsInTransitValue">7</h3>
+                                </div>
+                                <div class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                                    <i class="fas fa-truck mr-1"></i> Доставка
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-600" id="partsDeliveryDate">Ожидаются до 15.06</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Основная сетка панели управления -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                        <!-- Обзор парка кранов -->
+                        <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold">Общее состояние парка кранов</h3>
+                                <div class="flex space-x-2">
+                                    <button class="time-period-btn px-3 py-1 bg-gray-100 rounded-md text-sm flex items-center tooltip" data-tooltip="Данные за день" data-period="day">
+                                        <i class="fas fa-calendar-day mr-1"></i> День
+                                    </button>
+                                    <button class="time-period-btn px-3 py-1 bg-blue-500 text-white rounded-md text-sm flex items-center tooltip" data-tooltip="Данные за неделю" data-period="week">
+                                        <i class="fas fa-calendar-week mr-1"></i> Неделя
+                                    </button>
+                                    <button class="time-period-btn px-3 py-1 bg-gray-100 rounded-md text-sm flex items-center tooltip" data-tooltip="Данные за месяц" data-period="month">
+                                        <i class="fas fa-calendar-alt mr-1"></i> Месяц
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- График нагрузки -->
+                            <div class="h-64">
+                                <canvas id="craneLoadChart"></canvas>
+                            </div>
+
+                            <!-- Проблемные узлы -->
+                            <div class="mt-6">
+                                <h4 class="font-medium mb-2">Наиболее проблемные узлы, требующие внимания</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="border-l-4 border-red-500 pl-3 py-1 tooltip" data-tooltip="Частые проблемы с тормозами - требуется проверка">
+                                        <p class="text-sm text-gray-600">Тормозная система</p>
+                                        <p class="font-medium" id="brakeIssues">12 случаев поломок</p>
+                                    </div>
+                                    <div class="border-l-4 border-yellow-500 pl-3 py-1 tooltip" data-tooltip="Утечки в гидравлической системе">
+                                        <p class="text-sm text-gray-600">Гидравлика</p>
+                                        <p class="font-medium" id="hydraulicIssues">8 случаев поломок</p>
+                                    </div>
+                                    <div class="border-l-4 border-blue-500 pl-3 py-1 tooltip" data-tooltip="Проблемы с датчиками и контроллерами">
+                                        <p class="text-sm text-gray-600">Электроника</p>
+                                        <p class="font-medium" id="electronicsIssues">5 случаев поломок</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Список кранов -->
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold">Список кранов</h3>
+                                <select id="locationFilter" class="border rounded-md px-2 py-1 text-sm">
+                                    <option value="all">Все локации</option>
+                                    <option value="ufa">Уфа</option>
+                                    <option value="kazan">Казань</option>
+                                </select>
+                            </div>
+
+                            <div class="space-y-4" id="craneListContainer">
+                                <!-- Элементы кранов будут загружаться динамически -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Раздел деталей крана -->
+                    <div class="bg-white rounded-lg shadow mb-6" id="craneDetailsSection">
+                        <!-- Содержимое будет загружаться динамически -->
+                    </div>
+
+                    <!-- Календарь технического обслуживания -->
+                    <div class="bg-white rounded-lg shadow p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold">Календарь технического обслуживания</h3>
+                            <button class="px-3 py-1 bg-blue-500 text-white rounded-md text-sm flex items-center hover:bg-blue-600 tooltip" id="addMaintenanceBtn" data-tooltip="Добавить новое ТО">
+                                <i class="fas fa-plus mr-1"></i> Добавить ТО
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Календарь -->
+                            <div>
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="font-medium" id="currentMonthYear">Июнь 2024</h4>
+                                    <div class="flex space-x-2">
+                                        <button id="prevMonth" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center tooltip" data-tooltip="Предыдущий месяц">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        <button id="nextMonth" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center tooltip" data-tooltip="Следующий месяц">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="border rounded-lg p-3">
+                                    <div class="grid grid-cols-7 gap-1 text-center text-xs" id="calendarHeader">
+                                        <div class="font-medium py-1">Пн</div>
+                                        <div class="font-medium py-1">Вт</div>
+                                        <div class="font-medium py-1">Ср</div>
+                                        <div class="font-medium py-1">Чт</div>
+                                        <div class="font-medium py-1">Пт</div>
+                                        <div class="font-medium py-1">Сб</div>
+                                        <div class="font-medium py-1">Вс</div>
+                                    </div>
+                                    <div class="grid grid-cols-7 gap-1 text-center text-sm" id="calendarDays">
+                                        <!-- Дни календаря будут генерироваться динамически -->
+                                    </div>
+                                </div>
+                                <div class="mt-3 space-y-2">
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                                        <span class="text-sm">Плановое ТО</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                                        <span class="text-sm">Замена запчастей</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                                        <span class="text-sm">Аварийный ремонт</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Предстоящие мероприятия -->
+                            <div class="lg:col-span-2">
+                                <h4 class="font-medium mb-3">Ближайшие мероприятия</h4>
+                                <div class="space-y-3" id="upcomingEvents">
+                                    <!-- Мероприятия будут загружаться динамически -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Журнал аварий -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold">Журнал аварий и уведомлений</h3>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 flex items-center tooltip" id="filterLogsBtn" data-tooltip="Фильтровать записи">
+                                    <i class="fas fa-filter mr-1"></i> Фильтры
+                                </button>
+                                <button class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center tooltip" id="exportLogsBtn" data-tooltip="Экспорт в PDF">
+                                    <i class="fas fa-file-pdf mr-1"></i> Экспорт
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3" id="failureLogsContainer">
+                            <!-- Записи будут загружаться динамически -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Страница аналитики -->
+                <div class="page" id="analytics-page">
+                    <div class="bg-white rounded-lg shadow p-6 mb-6">
+                        <h3 class="text-lg font-semibold mb-4">Аналитика работы парка кранов</h3>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="font-medium mb-3">Нагрузка по месяцам</h4>
+                                <div class="h-64">
+                                    <canvas id="monthlyLoadChart"></canvas>
+                                </div>
+                                <div class="mt-2 text-sm text-gray-600 flex justify-end">
+                                    <button class="text-blue-500 hover:text-blue-700 flex items-center tooltip" data-tooltip="Экспорт данных">
+                                        <i class="fas fa-download mr-1"></i> Экспорт
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="font-medium mb-3">Распределение простоев</h4>
+                                <div class="h-64">
+                                    <canvas id="downtimeChart"></canvas>
+                                </div>
+                                <div class="mt-2 text-sm text-gray-600 flex justify-end">
+                                    <button class="text-blue-500 hover:text-blue-700 flex items-center tooltip" data-tooltip="Экспорт данных">
+                                        <i class="fas fa-download mr-1"></i> Экспорт
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                            <h4 class="font-medium mb-3">Динамика износа оборудования</h4>
+                            <div class="h-96">
+                                <canvas id="wearTrendChart"></canvas>
+                            </div>
+                            <div class="mt-2 text-sm text-gray-600 flex justify-end">
+                                <button class="text-blue-500 hover:text-blue-700 flex items-center tooltip" data-tooltip="Экспорт данных">
+                                    <i class="fas fa-download mr-1"></i> Экспорт
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="font-medium mb-3">Топ-5 проблемных узлов</h4>
+                                <div class="h-64">
+                                    <canvas id="problemNodesChart"></canvas>
+                                </div>
+                                <div class="mt-2 text-sm text-gray-600 flex justify-end">
+                                    <button class="text-blue-500 hover:text-blue-700 flex items-center tooltip" data-tooltip="Экспорт данных">
+                                        <i class="fas fa-download mr-1"></i> Экспорт
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="font-medium mb-3">Распределение ремонтов</h4>
+                                <div class="h-64">
+                                    <canvas id="repairTypesChart"></canvas>
+                                </div>
+                                <div class="mt-2 text-sm text-gray-600 flex justify-end">
+                                    <button class="text-blue-500 hover:text-blue-700 flex items-center tooltip" data-tooltip="Экспорт данных">
+                                        <i class="fas fa-download mr-1"></i> Экспорт
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="font-medium mb-3">Эффективность ТО</h4>
+                                <div class="h-64">
+                                    <canvas id="maintenanceEffectChart"></canvas>
+                                </div>
+                                <div class="mt-2 text-sm text-gray-600 flex justify-end">
+                                    <button class="text-blue-500 hover:text-blue-700 flex items-center tooltip" data-tooltip="Экспорт данных">
+                                        <i class="fas fa-download mr-1"></i> Экспорт
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Страница технического состояния -->
+                <div class="page" id="tech-state-page">
+                    <div class="bg-white rounded-lg shadow p-6 mb-6">
+                        <h3 class="text-lg font-semibold mb-4">Техническое состояние оборудования</h3>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div class="border rounded-lg p-4">
+                                <h4 class="font-medium mb-3">Общий износ парка</h4>
+                                <div class="gauge mx-auto" style="max-width: 200px;">
+                                    <div class="gauge-body">
+                                        <div class="gauge-fill" style="transform: rotate(0.6turn);"></div>
+                                        <div class="gauge-cover">30%</div>
+                                    </div>
+                                </div>
+                                <p class="text-center text-sm text-gray-600 mt-2">Средний показатель по парку</p>
+                            </div>
+
+                            <div class="border rounded-lg p-4">
+                                <h4 class="font-medium mb-3">Краны с критическим износом</h4>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between items-center tooltip" data-tooltip="Требуется срочный ремонт">
+                                        <span>Кран #15 (KB-403)</span>
+                                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">45%</span>
+                                    </div>
+                                    <div class="flex justify-between items-center tooltip" data-tooltip="Рекомендуется профилактика">
+                                        <span>Кран #21 (MG-32)</span>
+                                        <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">34%</span>
+                                    </div>
+                                    <div class="flex justify-between items-center tooltip" data-tooltip="Состояние в норме">
+                                        <span>Кран #12 (MG-50)</span>
+                                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">18%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="border rounded-lg p-4">
+                                <h4 class="font-medium mb-3">Состояние по узлам</h4>
+                                <div class="space-y-2">
+                                    <div class="tooltip" data-tooltip="Средний износ гидравлики по парку">
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>Гидравлика</span>
+                                            <span>65%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="h-2 rounded-full bg-yellow-500" style="width: 65%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="tooltip" data-tooltip="Средний износ тормозов по парку">
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>Тормоза</span>
+                                            <span>58%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="h-2 rounded-full bg-red-500" style="width: 58%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="tooltip" data-tooltip="Средний износ электроники по парку">
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>Электроника</span>
+                                            <span>72%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="h-2 rounded-full bg-green-500" style="width: 72%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Кран</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Тип</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Локация</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Наработка (ч)</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Износ</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="craneStatusTable">
+                                    <!-- Содержимое будет загружаться динамически -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Страница обслуживания -->
+                <div class="page" id="maintenance-page">
+                    <div class="bg-white rounded-lg shadow p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold">Планирование технического обслуживания</h3>
+                            <button class="px-3 py-1 bg-blue-500 text-white rounded-md text-sm flex items-center hover:bg-blue-600 tooltip" id="addMaintenanceBtn2" data-tooltip="Добавить новое ТО">
+                                <i class="fas fa-plus mr-1"></i> Добавить ТО
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                            <div class="border rounded-lg p-4">
+                                <h4 class="font-medium mb-3">Ближайшие ТО</h4>
+                                <div class="space-y-3" id="upcomingMaintenance">
+                                    <!-- Содержимое будет загружаться динамически -->
+                                </div>
+                            </div>
+
+                            <div class="border rounded-lg p-4">
+                                <h4 class="font-medium mb-3">Требуются запчасти</h4>
+                                <div class="space-y-3" id="partsRequired">
+                                    <!-- Содержимое будет загружаться динамически -->
+                                </div>
+                            </div>
+
+                            <div class="border rounded-lg p-4">
+                                <h4 class="font-medium mb-3">История обслуживания</h4>
+                                <div class="space-y-3" id="maintenanceHistory">
+                                    <!-- Содержимое будет загружаться динамически -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Кран</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Тип ТО</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Описание</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="maintenanceTable">
+                                    <!-- Содержимое будет загружаться динамически -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Страница отчетов -->
+                <div class="page" id="reports-page">
+                    <div class="bg-white rounded-lg shadow p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold">Отчеты по парку кранов</h3>
+                            <button class="px-3 py-1 bg-blue-500 text-white rounded-md text-sm flex items-center hover:bg-blue-600 tooltip" id="generateReportBtn" data-tooltip="Создать новый отчет">
+                                <i class="fas fa-file-export mr-1"></i> Создать отчет
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div class="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition" id="wearReport">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-medium">Отчет по износу за май 2024</h4>
+                                    <i class="fas fa-file-pdf text-red-500"></i>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-3">Анализ износа оборудования за последний месяц</p>
+                                <div class="flex justify-between text-xs text-gray-500">
+                                    <span>Обновлен: 01.06.2024</span>
+                                    <button class="text-blue-500 hover:text-blue-700 flex items-center tooltip" data-tooltip="Экспорт отчета">
+                                        <i class="fas fa-download mr-1"></i> Экспорт
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition" id="loadReport">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-medium">Статистика нагрузки за Q1 2024</h4>
+                                    <i class="fas fa-file-excel text-green-500"></i>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-3">Статистика нагрузки кранов за квартал</p>
+                                <div class="flex justify-between text-xs text-gray-500">
+                                    <span>Обновлен: 15.05.2024</span>
+                                    <button class="text-blue-500 hover:text-blue-700 flex items-center tooltip" data-tooltip="Экспорт отчета">
+                                        <i class="fas fa-download mr-1"></i> Экспорт
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition" id="repairReport">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-medium">Ремонты за 2023 год</h4>
+                                    <i class="fas fa-file-pdf text-red-500"></i>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-3">Все выполненные ремонты за текущий год</p>
+                                <div class="flex justify-between text-xs text-gray-500">
+                                    <span>Обновлен: 01.06.2024</span>
+                                    <button class="text-blue-500 hover:text-blue-700 flex items-center tooltip" data-tooltip="Экспорт отчета">
+                                        <i class="fas fa-download mr-1"></i> Экспорт
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название отчета</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Тип</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Период</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата создания</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Автор</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="reportsTable">
+                                    <!-- Содержимое будет загружаться динамически -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Страница диагностики -->
+                <div class="page" id="diagnostics-page">
+                    <div class="bg-white rounded-lg shadow p-6 mb-6">
+                        <h3 class="text-lg font-semibold mb-4">Диагностика оборудования</h3>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div class="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-medium">Автоматическая диагностика</h4>
+                                    <i class="fas fa-robot text-blue-500"></i>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-3">Проверка состояния всех систем крана</p>
+                                <button class="w-full px-3 py-1 bg-blue-500 text-white rounded-md text-sm mt-2 hover:bg-blue-600 flex items-center justify-center tooltip" data-tooltip="Запустить полную диагностику">
+                                    <i class="fas fa-play mr-1"></i> Запустить
+                                </button>
+                            </div>
+
+                            <div class="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-medium">Проверка гидравлики</h4>
+                                    <i class="fas fa-tint text-red-500"></i>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-3">Тестирование гидравлической системы</p>
+                                <button class="w-full px-3 py-1 bg-blue-500 text-white rounded-md text-sm mt-2 hover:bg-blue-600 flex items-center justify-center tooltip" data-tooltip="Запустить диагностику гидравлики">
+                                    <i class="fas fa-play mr-1"></i> Запустить
+                                </button>
+                            </div>
+
+                            <div class="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-medium">Проверка электроники</h4>
+                                    <i class="fas fa-bolt text-yellow-500"></i>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-3">Диагностика электронных систем управления</p>
+                                <button class="w-full px-3 py-1 bg-blue-500 text-white rounded-md text-sm mt-2 hover:bg-blue-600 flex items-center justify-center tooltip" data-tooltip="Запустить диагностику электроники">
+                                    <i class="fas fa-play mr-1"></i> Запустить
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="border rounded-lg p-4 mb-6">
+                            <h4 class="font-medium mb-3">Результаты последней диагностики</h4>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Кран</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Тип диагностики</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Результат</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200" id="diagnosticsTable">
+                                        <!-- Содержимое будет загружаться динамически -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="border rounded-lg p-4">
+                            <h4 class="font-medium mb-3">Запуск ручной диагностики</h4>
+                            <form id="diagnosticsForm">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Выберите кран</label>
+                                        <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                            <option value="">Выберите кран</option>
+                                            <option value="12">Кран #12 (MG-50)</option>
+                                            <option value="15">Кран #15 (KB-403)</option>
+                                            <option value="18">Кран #18 (LTM-1050)</option>
+                                            <option value="21">Кран #21 (MG-32)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Тип диагностики</label>
+                                        <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                            <option value="">Выберите тип</option>
+                                            <option value="full">Полная диагностика</option>
+                                            <option value="hydraulic">Гидравлическая система</option>
+                                            <option value="electrical">Электрическая система</option>
+                                            <option value="mechanical">Механические узлы</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Примечания</label>
+                                    <textarea class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="3" placeholder="Опишите проблему, если она известна"></textarea>
+                                </div>
+                                <div class="flex justify-end">
+                                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center">
+                                        <i class="fas fa-play mr-1"></i> Запустить диагностику
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Страница настроек -->
+                <div class="page" id="settings-page">
+                    <div class="bg-white rounded-lg shadow p-6 mb-6">
+                        <h3 class="text-lg font-semibold mb-4">Настройки системы</h3>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                            <div class="border rounded-lg p-4">
+                                <h4 class="font-medium mb-3">Настройки уведомлений</h4>
+                                <form id="notificationsForm">
+                                    <div class="space-y-3">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" class="rounded text-blue-500" checked>
+                                            <span class="ml-2">Электронная почта</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" class="rounded text-blue-500" checked>
+                                            <span class="ml-2">SMS-уведомления</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" class="rounded text-blue-500">
+                                            <span class="ml-2">Push-уведомления</span>
+                                        </label>
+                                        <div class="pt-2">
+                                            <button type="submit" class="px-3 py-1 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 flex items-center">
+                                                <i class="fas fa-save mr-1"></i> Сохранить
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="border rounded-lg p-4">
+                                <h4 class="font-medium mb-3">Параметры отчетов</h4>
+                                <form id="reportsSettingsForm">
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Формат по умолчанию</label>
+                                            <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                <option value="pdf">PDF</option>
+                                                <option value="excel">Excel</option>
+                                                <option value="csv">CSV</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Автоматическая отправка</label>
+                                            <input type="email" class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="email@example.com">
+                                        </div>
+                                        <div class="pt-2">
+                                            <button type="submit" class="px-3 py-1 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 flex items-center">
+                                                <i class="fas fa-save mr-1"></i> Сохранить
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="border rounded-lg p-4">
+                                <h4 class="font-medium mb-3">Системные настройки</h4>
+                                <form id="systemSettingsForm">
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Язык интерфейса</label>
+                                            <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                <option value="ru">Русский</option>
+                                                <option value="en">English</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Часовой пояс</label>
+                                            <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                <option value="+3">Москва (+3)</option>
+                                                <option value="+4">Самара (+4)</option>
+                                                <option value="+5">Екатеринбург (+5)</option>
+                                            </select>
+                                        </div>
+                                        <div class="pt-2">
+                                            <button type="submit" class="px-3 py-1 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 flex items-center">
+                                                <i class="fas fa-save mr-1"></i> Сохранить
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="border rounded-lg p-4">
+                            <h4 class="font-medium mb-3">Смена пароля</h4>
+                            <form id="passwordForm">
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Текущий пароль</label>
+                                        <input type="password" class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Новый пароль</label>
+                                        <input type="password" class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Подтверждение пароля</label>
+                                        <input type="password" class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                                    </div>
+                                    <div class="pt-2">
+                                        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center">
+                                            <i class="fas fa-key mr-1"></i> Сменить пароль
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Модальное окно добавления ТО -->
+    <div id="addMaintenanceModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Добавить техническое обслуживание</h3>
+                <button class="close-modal text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="maintenanceForm">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Выберите кран</label>
+                        <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                            <option value="">Выберите кран</option>
+                            <option value="12">Кран #12 (MG-50)</option>
+                            <option value="15">Кран #15 (KB-403)</option>
+                            <option value="18">Кран #18 (LTM-1050)</option>
+                            <option value="21">Кран #21 (MG-32)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Тип обслуживания</label>
+                        <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                            <option value="">Выберите тип</option>
+                            <option value="planned">Плановое ТО</option>
+                            <option value="parts">Замена запчастей</option>
+                            <option value="emergency">Аварийный ремонт</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Дата</label>
+                        <input type="date" class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                        <textarea class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="3" required></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Необходимые запчасти</label>
+                        <input type="text" class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Введите артикулы запчастей">
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" class="close-modal px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                        Отмена
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center">
+                        <i class="fas fa-save mr-1"></i> Сохранить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно фильтрации журнала -->
+    <div id="filterLogsModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Фильтры журнала</h3>
+                <button class="close-modal text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="filterLogsForm">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Тип уведомления</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" class="rounded text-blue-500" checked>
+                                <span class="ml-2">Ошибки</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="rounded text-blue-500" checked>
+                                <span class="ml-2">Предупреждения</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="rounded text-blue-500" checked>
+                                <span class="ml-2">Информационные</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Период</label>
+                        <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="7">Последние 7 дней</option>
+                            <option value="30">Последние 30 дней</option>
+                            <option value="90">Последние 3 месяца</option>
+                            <option value="all">За все время</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Кран</label>
+                        <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="all">Все краны</option>
+                            <option value="12">Кран #12</option>
+                            <option value="15">Кран #15</option>
+                            <option value="18">Кран #18</option>
+                            <option value="21">Кран #21</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" class="close-modal px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                        Отмена
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center">
+                        <i class="fas fa-filter mr-1"></i> Применить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно экспорта -->
+    <div id="exportModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Экспорт данных</h3>
+                <button class="close-modal text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="exportForm">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Формат</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="radio" name="exportFormat" class="rounded text-blue-500" value="pdf" checked>
+                                <span class="ml-2">PDF</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="exportFormat" class="rounded text-blue-500" value="excel">
+                                <span class="ml-2">Excel</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="exportFormat" class="rounded text-blue-500" value="csv">
+                                <span class="ml-2">CSV</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Период</label>
+                        <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="7">Последние 7 дней</option>
+                            <option value="30">Последние 30 дней</option>
+                            <option value="90">Последние 3 месяца</option>
+                            <option value="all">За все время</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Тип данных</label>
+                        <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="all">Все данные</option>
+                            <option value="errors">Только ошибки</option>
+                            <option value="warnings">Только предупреждения</option>
+                            <option value="maintenance">Только ТО</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" class="close-modal px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                        Отмена
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center">
+                        <i class="fas fa-file-export mr-1"></i> Экспорт
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания отчета -->
+    <div id="generateReportModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Создание отчета</h3>
+                <button class="close-modal text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="generateReportForm">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Тип отчета</label>
+                        <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                            <option value="">Выберите тип</option>
+                            <option value="wear">Отчет по износу</option>
+                            <option value="load">Отчет по нагрузке</option>
+                            <option value="repairs">Отчет по ремонтам</option>
+                            <option value="maintenance">Отчет по ТО</option>
+                            <option value="full">Полный отчет</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Период</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="date" class="border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Начало" required>
+                            <input type="date" class="border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Конец" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Формат</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="radio" name="reportFormat" class="rounded text-blue-500" value="pdf" checked>
+                                <span class="ml-2">PDF</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="reportFormat" class="rounded text-blue-500" value="excel">
+                                <span class="ml-2">Excel</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Дополнительные параметры</label>
+                        <textarea class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="2" placeholder="Комментарии, особые требования"></textarea>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" class="close-modal px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                        Отмена
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center">
+                        <i class="fas fa-file-alt mr-1"></i> Создать отчет
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Тестовые данные для приложения
+        const mockData = {
+            cranes: [
+                { id: 12, name: "Кран #12 (MG-50)", type: "Мостовой", location: "Уфа", status: "working", load: 65, wear: 18 },
+                { id: 15, name: "Кран #15 (KB-403)", type: "Козловой", location: "Уфа", status: "idle", load: 0, wear: 45 },
+                { id: 18, name: "Кран #18 (LTM-1050)", type: "Автомобильный", location: "Казань", status: "repair", load: 0, wear: 28 },
+                { id: 21, name: "Кран #21 (MG-32)", type: "Мостовой", location: "Уфа", status: "working", load: 78, wear: 34 }
+            ],
+            craneDetails: {
+                12: {
+                    hours: 1245,
+                    lastInspection: "15.05.2024",
+                    nextMaintenance: "30.06.2024",
+                    warranty: "До 12.12.2025",
+                    nodes: [
+                        { name: "Редуктор", condition: 72 },
+                        { name: "Гидравлика", condition: 65 },
+                        { name: "Тормоза", condition: 58 }
+                    ],
+                    resource: 82,
+                    repairHistory: [
+                        { date: "12.05.2024", node: "Тормозная система", type: "Замена колодок", status: "completed", cost: "$1,250" },
+                        { date: "28.04.2024", node: "Гидравлика", type: "Течь уплотнений", status: "completed", cost: "$850" },
+                        { date: "15.03.2024", node: "Электроника", type: "Замена датчиков", status: "completed", cost: "$2,100" }
+                    ],
+                    wearPredictions: [
+                        { node: "Редуктор", current: 28, prediction: 40 },
+                        { node: "Гидравлика", current: 35, prediction: 50 },
+                        { node: "Тормоза", current: 42, prediction: 65 },
+                        { node: "Электроника", current: 15, prediction: 25 },
+                        { node: "Кабина", current: 20, prediction: 30 },
+                        { node: "Ходовая", current: 30, prediction: 45 }
+                    ],
+                    recommendations: [
+                        { part: "Тормозные колодки", resource: 40, replacement: "1 мес.", priority: "high" },
+                        { part: "Гидравлические шланги", resource: 55, replacement: "2 мес.", priority: "medium" },
+                        { part: "Подшипники", resource: 75, replacement: "6 мес.", priority: "low" }
+                    ]
+                },
+                15: {
+                    hours: 1870,
+                    lastInspection: "10.05.2024",
+                    nextMaintenance: "25.06.2024",
+                    warranty: "Истекла",
+                    nodes: [
+                        { name: "Редуктор", condition: 45 },
+                        { name: "Гидравлика", condition: 38 },
+                        { name: "Тормоза", condition: 52 }
+                    ],
+                    resource: 65,
+                    repairHistory: [
+                        { date: "05.05.2024", node: "Гидравлика", type: "Ремонт насоса", status: "completed", cost: "$1,750" },
+                        { date: "20.04.2024", node: "Электроника", type: "Замена контроллера", status: "completed", cost: "$3,200" }
+                    ],
+                    wearPredictions: [
+                        { node: "Редуктор", current: 45, prediction: 60 },
+                        { node: "Гидравлика", current: 38, prediction: 55 },
+                        { node: "Тормоза", current: 52, prediction: 70 },
+                        { node: "Электроника", current: 25, prediction: 40 },
+                        { node: "Кабина", current: 30, prediction: 45 },
+                        { node: "Ходовая", current: 40, prediction: 60 }
+                    ],
+                    recommendations: [
+                        { part: "Гидравлический насос", resource: 30, replacement: "2 мес.", priority: "high" },
+                        { part: "Тормозные диски", resource: 45, replacement: "3 мес.", priority: "high" },
+                        { part: "Канатные барабаны", resource: 60, replacement: "5 мес.", priority: "medium" }
+                    ]
+                },
+                18: {
+                    hours: 890,
+                    lastInspection: "20.05.2024",
+                    nextMaintenance: "05.07.2024",
+                    warranty: "До 01.01.2026",
+                    nodes: [
+                        { name: "Редуктор", condition: 28 },
+                        { name: "Гидравлика", condition: 35 },
+                        { name: "Тормоза", condition: 42 }
+                    ],
+                    resource: 88,
+                    repairHistory: [
+                        { date: "18.05.2024", node: "Двигатель", type: "Замена масла", status: "completed", cost: "$450" },
+                        { date: "10.05.2024", node: "Ходовая", type: "Регулировка", status: "completed", cost: "$320" }
+                    ],
+                    wearPredictions: [
+                        { node: "Редуктор", current: 28, prediction: 35 },
+                        { node: "Гидравлика", current: 35, prediction: 45 },
+                        { node: "Тормоза", current: 42, prediction: 55 },
+                        { node: "Электроника", current: 10, prediction: 15 },
+                        { node: "Кабина", current: 15, prediction: 20 },
+                        { node: "Ходовая", current: 25, prediction: 35 }
+                    ],
+                    recommendations: [
+                        { part: "Фильтры гидравлики", resource: 70, replacement: "3 мес.", priority: "medium" },
+                        { part: "Тормозные колодки", resource: 60, replacement: "4 мес.", priority: "medium" }
+                    ]
+                },
+                21: {
+                    hours: 1560,
+                    lastInspection: "12.05.2024",
+                    nextMaintenance: "28.06.2024",
+                    warranty: "До 15.09.2025",
+                    nodes: [
+                        { name: "Редуктор", condition: 65 },
+                        { name: "Гидравлика", condition: 58 },
+                        { name: "Тормоза", condition: 72 }
+                    ],
+                    resource: 75,
+                    repairHistory: [
+                        { date: "10.05.2024", node: "Тормозная система", type: "Регулировка", status: "completed", cost: "$280" },
+                        { date: "25.04.2024", node: "Гидравлика", type: "Замена шлангов", status: "completed", cost: "$620" }
+                    ],
+                    wearPredictions: [
+                        { node: "Редуктор", current: 65, prediction: 75 },
+                        { node: "Гидравлика", current: 58, prediction: 70 },
+                        { node: "Тормоза", current: 72, prediction: 85 },
+                        { node: "Электроника", current: 20, prediction: 30 },
+                        { node: "Кабина", current: 25, prediction: 35 },
+                        { node: "Ходовая", current: 35, prediction: 50 }
+                    ],
+                    recommendations: [
+                        { part: "Тормозные колодки", resource: 45, replacement: "1 мес.", priority: "high" },
+                        { part: "Подшипники редуктора", resource: 60, replacement: "3 мес.", priority: "medium" }
+                    ]
+                }
+            },
+            maintenanceEvents: [
+                { id: 1, craneId: 12, type: "planned", date: "2024-06-19", title: "Плановое ТО #12", description: "Кран #12, стандартное обслуживание", parts: "фильтры, смазка", status: "scheduled" },
+                { id: 2, craneId: 12, type: "parts", date: "2024-06-27", title: "Замена тормозных колодок", description: "Кран #12, по результатам диагностики", parts: "тормозные колодки (арт. TB-125)", status: "parts_required" },
+                { id: 3, craneId: 15, type: "emergency", date: "2024-06-05", title: "Аварийный ремонт гидравлики", description: "Кран #15, течь в гидравлической системе", parts: "гидравлические уплотнения (арт. HS-45)", status: "completed" },
+                { id: 4, craneId: 21, type: "planned", date: "2024-07-10", title: "Плановое ТО #21", description: "Кран #21, стандартное обслуживание", parts: "фильтры, смазка", status: "scheduled" }
+            ],
+            failureLogs: [
+                { id: 1, date: "2024-06-02 11:30", craneId: 21, type: "warning", title: "Предупреждение: износ тормозов", description: "Остаточный ресурс: 45%. Рекомендуется замена через 1 месяц." },
+                { id: 2, date: "2024-05-28 11:15", craneId: 15, type: "error", title: "Перегрев гидравлики на кране козловом #15", description: "Температура масла достигла 85°C. Автоматическое отключение." },
+                { id: 3, date: "2024-05-05 14:32", craneId: 12, type: "error", title: "Защита от перегрузки сработала на кране мостовом #12 в двигателе подъема", description: "Нагрузка: 112%, продолжительность: 2 сек." },
+                { id: 4, date: "2024-04-22 09:45", craneId: 18, type: "warning", title: "Низкий уровень масла в гидравлике", description: "Кран #18, уровень масла ниже минимального на 15%" },
+                { id: 5, date: "2024-04-15 16:20", craneId: 21, type: "info", title: "Завершено плановое ТО", description: "Кран #21 успешно прошел плановое техническое обслуживание" }
+            ],
+            reports: [
+                { id: 1, name: "Отчет по износу за май 2024", type: "pdf", period: "01.05.2024 - 31.05.2024", created: "01.06.2024", author: "Иван Петров" },
+                { id: 2, name: "Статистика нагрузки за Q1 2024", type: "excel", period: "01.01.2024 - 31.03.2024", created: "15.04.2024", author: "Иван Петров" },
+                { id: 3, name: "Ремонты за 2023 год", type: "pdf", period: "01.01.2023 - 31.12.2023", created: "15.01.2024", author: "Сергей Иванов" },
+                { id: 4, name: "Плановое ТО за апрель 2024", type: "pdf", period: "01.04.2024 - 30.04.2024", created: "05.05.2024", author: "Иван Петров" }
+            ],
+            diagnostics: [
+                { id: 1, craneId: 12, date: "2024-06-10", type: "full", result: "success", issues: "Незначительный износ тормозных колодок" },
+                { id: 2, craneId: 15, date: "2024-05-28", type: "hydraulic", result: "warning", issues: "Течь в гидравлической системе" },
+                { id: 3, craneId: 21, date: "2024-05-15", type: "electrical", result: "success", issues: "Проблем не обнаружено" },
+                { id: 4, craneId: 18, date: "2024-04-22", type: "full", result: "error", issues: "Критический износ редуктора" }
+            ]
+        };
+
+        // Текущий выбранный кран
+        let currentCraneId = 12;
+        let currentDate = new Date(2024, 5, 1); // Июнь 2024
+
+        // Инициализация приложения при загрузке DOM
+        document.addEventListener('DOMContentLoaded', function() {
+            // Инициализация переключения боковой панели
+            initSidebar();
+
+            // Инициализация меню пользователя
+            initUserMenu();
+
+            // Инициализация модальных окон
+            initModals();
+
+            // Инициализация навигации
+            initNavigation();
+
+            // Инициализация подсказок
+            initTooltips();
+
+            // Загрузка страницы по умолчанию
+            loadPage('dashboard');
+
+            // Загрузка списка кранов
+            loadCraneList();
+
+            // Загрузка деталей крана по умолчанию (12)
+            loadCraneDetails(currentCraneId);
+
+            // Инициализация графиков
+            initCharts();
+
+            // Инициализация календаря
+            initCalendar();
+
+            // Загрузка предстоящих мероприятий ТО
+            loadUpcomingEvents();
+
+            // Загрузка журнала аварий
+            loadFailureLogs();
+
+            // Инициализация кнопок временного периода
+            initTimePeriodButtons();
+
+            // Инициализация фильтра по локации
+            initLocationFilter();
+
+            // Загрузка данных отчетов
+            loadReportsData();
+
+            // Загрузка данных диагностики
+            loadDiagnosticsData();
+
+            // Загрузка данных обслуживания
+            loadMaintenanceData();
+
+            // Загрузка данных технического состояния
+            loadTechnicalStateData();
+        });
+
+        // Инициализация функционала переключения боковой панели
+        function initSidebar() {
+            const toggleSidebar = document.getElementById('toggleSidebar');
+            const mobileToggleSidebar = document.getElementById('mobileToggleSidebar');
+            const sidebar = document.getElementById('sidebar');
+
+            toggleSidebar.addEventListener('click', function() {
+                sidebar.classList.toggle('sidebar-collapsed');
+            });
+
+            mobileToggleSidebar.addEventListener('click', function() {
+                sidebar.classList.toggle('sidebar-collapsed');
+            });
+        }
+
+        // Инициализация выпадающего меню пользователя
+        function initUserMenu() {
+            const userMenuBtn = document.getElementById('userMenuBtn');
+            const userMenu = document.getElementById('userMenu');
+
+            userMenuBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                userMenu.classList.toggle('hidden');
+            });
+
+            // Закрытие меню при клике вне его
+            document.addEventListener('click', function() {
+                userMenu.classList.add('hidden');
+            });
+        }
+
+        // Инициализация подсказок
+        function initTooltips() {
+            document.querySelectorAll('[data-tooltip]').forEach(element => {
+                const tooltipText = element.getAttribute('data-tooltip');
+                const tooltipElement = document.createElement('span');
+                tooltipElement.className = 'tooltip-text';
+                tooltipElement.textContent = tooltipText;
+                element.appendChild(tooltipElement);
+            });
+        }
+
+        // Инициализация навигации между страницами
+        function initNavigation() {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const page = this.getAttribute('data-page');
+                    loadPage(page);
+
+                    // Подсветка активной ссылки
+                    document.querySelectorAll('.nav-link').forEach(navLink => {
+                        navLink.classList.remove('bg-blue-700');
+                        navLink.classList.add('hover:bg-gray-700');
+                    });
+
+                    this.classList.add('bg-blue-700');
+                    this.classList.remove('hover:bg-gray-700');
+                });
+            });
+        }
+
+        // Загрузка содержимого конкретной страницы
+        function loadPage(page) {
+            // Скрытие всех страниц
+            document.querySelectorAll('.page').forEach(p => {
+                p.classList.remove('active');
+            });
+
+            // Отображение выбранной страницы
+            document.getElementById(`${page}-page`).classList.add('active');
+
+            // Обновление заголовка страницы
+            const titles = {
+                'dashboard': 'Обзор парка',
+                'analytics': 'Аналитика работы',
+                'tech-state': 'Техническое состояние',
+                'maintenance': 'Обслуживание',
+                'reports': 'Отчеты',
+                'diagnostics': 'Диагностика',
+                'settings': 'Настройки'
+            };
+
+            document.getElementById('pageTitle').textContent = titles[page] || 'Управление парком кранов';
+
+            // Инициализация графиков для страницы аналитики при необходимости
+            if (page === 'analytics') {
+                initAnalyticsCharts();
+            }
+        }
+
+        // Инициализация модальных окон
+        function initModals() {
+            // Модальное окно добавления ТО
+            const addMaintenanceBtn = document.getElementById('addMaintenanceBtn');
+            const addMaintenanceBtn2 = document.getElementById('addMaintenanceBtn2');
+            const addMaintenanceModal = document.getElementById('addMaintenanceModal');
+
+            // Модальное окно фильтрации журнала
+            const filterLogsBtn = document.getElementById('filterLogsBtn');
+            const filterLogsModal = document.getElementById('filterLogsModal');
+
+            // Модальное окно экспорта
+            const exportLogsBtn = document.getElementById('exportLogsBtn');
+            const exportModal = document.getElementById('exportModal');
+
+            // Модальное окно создания отчета
+            const generateReportBtn = document.getElementById('generateReportBtn');
+            const generateReportModal = document.getElementById('generateReportModal');
+
+            // Кнопки закрытия для всех модальных окон
+            const closeModalButtons = document.querySelectorAll('.close-modal');
+
+            // Открытие модального окна добавления ТО
+            addMaintenanceBtn?.addEventListener('click', function() {
+                addMaintenanceModal.style.display = 'block';
+            });
+
+            addMaintenanceBtn2?.addEventListener('click', function() {
+                addMaintenanceModal.style.display = 'block';
+            });
+
+            // Открытие модального окна фильтрации журнала
+            filterLogsBtn?.addEventListener('click', function() {
+                filterLogsModal.style.display = 'block';
+            });
+
+            // Открытие модального окна экспорта
+            exportLogsBtn?.addEventListener('click', function() {
+                exportModal.style.display = 'block';
+            });
+
+            // Открытие модального окна создания отчета
+            generateReportBtn?.addEventListener('click', function() {
+                generateReportModal.style.display = 'block';
+            });
+
+            // Закрытие модальных окон при нажатии на кнопку закрытия
+            closeModalButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    addMaintenanceModal.style.display = 'none';
+                    filterLogsModal.style.display = 'none';
+                    exportModal.style.display = 'none';
+                    generateReportModal.style.display = 'none';
+                });
+            });
+
+            // Закрытие модальных окон при клике вне их
+            window.addEventListener('click', function(event) {
+                if (event.target.classList.contains('modal')) {
+                    addMaintenanceModal.style.display = 'none';
+                    filterLogsModal.style.display = 'none';
+                    exportModal.style.display = 'none';
+                    generateReportModal.style.display = 'none';
+                }
+            });
+
+            // Обработка отправки форм
+            document.getElementById('maintenanceForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                // Добавление нового ТО
+                const newId = Math.max(...mockData.maintenanceEvents.map(e => e.id)) + 1;
+                const craneId = parseInt(this.querySelector('select').value);
+                const type = this.querySelectorAll('select')[1].value;
+                const date = this.querySelector('input[type="date"]').value;
+                const description = this.querySelector('textarea').value;
+                const parts = this.querySelector('input[type="text"]').value;
+
+                const newEvent = {
+                    id: newId,
+                    craneId: craneId,
+                    type: type,
+                    date: date,
+                    title: `Новое ТО #${newId}`,
+                    description: description,
+                    parts: parts,
+                    status: "scheduled"
+                };
+
+                mockData.maintenanceEvents.push(newEvent);
+                addMaintenanceModal.style.display = 'none';
+                // Перезагрузка событий
+                loadUpcomingEvents();
+                loadMaintenanceData();
+            });
+
+            document.getElementById('filterLogsForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                filterLogsModal.style.display = 'none';
+                // Перезагрузка журнала с фильтрами
+                loadFailureLogs();
+            });
+
+            document.getElementById('exportForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const format = document.querySelector('input[name="exportFormat"]:checked').value;
+                // Создание ссылки для скачивания
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(mockData.failureLogs));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", `журнал_аварий.${format}`);
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+                exportModal.style.display = 'none';
+            });
+
+            document.getElementById('generateReportForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const type = document.querySelector('#generateReportForm select').value;
+                const format = document.querySelector('input[name="reportFormat"]:checked').value;
+                // Создание ссылки для скачивания отчета
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                    type: type,
+                    date: new Date().toLocaleDateString(),
+                    data: mockData.craneDetails
+                }));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", `отчет_${type}.${format}`);
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+                generateReportModal.style.display = 'none';
+                // Перезагрузка отчетов
+                loadReportsData();
+            });
+
+            document.getElementById('diagnosticsForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const craneId = parseInt(this.querySelector('select').value);
+                const type = this.querySelectorAll('select')[1].value;
+                const notes = this.querySelector('textarea').value;
+
+                // Добавление новой диагностики
+                const newId = Math.max(...mockData.diagnostics.map(d => d.id)) + 1;
+                const newDiagnostic = {
+                    id: newId,
+                    craneId: craneId,
+                    date: new Date().toISOString().split('T')[0],
+                    type: type,
+                    result: "success",
+                    issues: notes || "Проблем не обнаружено"
+                };
+
+                mockData.diagnostics.push(newDiagnostic);
+                // Перезагрузка диагностики
+                loadDiagnosticsData();
+            });
+
+            document.getElementById('notificationsForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                alert('Настройки уведомлений сохранены!');
+            });
+
+            document.getElementById('reportsSettingsForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                alert('Настройки отчетов сохранены!');
+            });
+
+            document.getElementById('systemSettingsForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                alert('Системные настройки сохранены!');
+            });
+
+            document.getElementById('passwordForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                alert('Пароль успешно изменен!');
+            });
+
+            // Экспорт отчетов
+            document.getElementById('wearReport')?.addEventListener('click', function() {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                    type: "wear",
+                    date: "01.06.2024",
+                    data: mockData.craneDetails
+                }));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "отчет_по_износу.pdf");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            });
+
+            document.getElementById('loadReport')?.addEventListener('click', function() {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                    type: "load",
+                    date: "15.05.2024",
+                    data: mockData.cranes.map(c => ({ id: c.id, name: c.name, load: c.load }))
+                }));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "отчет_по_нагрузке.xlsx");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            });
+
+            document.getElementById('repairReport')?.addEventListener('click', function() {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                    type: "repairs",
+                    date: "01.06.2024",
+                    data: mockData.maintenanceEvents.filter(e => e.type === "emergency")
+                }));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "отчет_по_ремонтам.pdf");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            });
+        }
+
+        // Загрузка списка кранов на основе фильтра по локации
+        function loadCraneList() {
+            const locationFilter = document.getElementById('locationFilter')?.value;
+            const craneListContainer = document.getElementById('craneListContainer');
+
+            if (!craneListContainer) return;
+
+            // Фильтрация кранов по локации
+            let filteredCranes = mockData.cranes;
+            if (locationFilter && locationFilter !== 'all') {
+                filteredCranes = mockData.cranes.filter(crane =>
+                    crane.location.toLowerCase() === locationFilter
+                );
+            }
+
+            // Очистка контейнера
+            craneListContainer.innerHTML = '';
+
+            // Добавление кранов в список
+            filteredCranes.forEach(crane => {
+                const statusClasses = {
+                    working: { bg: 'bg-green-100', text: 'text-green-800', label: 'Работает' },
+                    idle: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Простой' },
+                    repair: { bg: 'bg-red-100', text: 'text-red-800', label: 'Ремонт' }
+                };
+
+                const status = statusClasses[crane.status];
+
+                const craneElement = document.createElement('div');
+                craneElement.className = `p-3 border rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition crane-item`;
+                craneElement.dataset.id = crane.id;
+                craneElement.innerHTML = `
+                    <div class="flex justify-between">
+                        <div>
+                            <p class="font-medium">${crane.name}</p>
+                            <p class="text-sm text-gray-600">${crane.type}, ${crane.location}</p>
+                        </div>
+                        <div class="${status.bg} ${status.text} px-2 py-1 rounded-full text-xs">
+                            ${status.label}
+                        </div>
+                    </div>
+                    <div class="mt-2 flex justify-between text-sm">
+                        <span>Нагрузка: ${crane.load}%</span>
+                        <span>Износ: ${crane.wear}%</span>
+                    </div>
+                `;
+
+                // Добавление события клика для загрузки деталей крана
+                craneElement.addEventListener('click', function() {
+                    currentCraneId = crane.id;
+                    loadCraneDetails(crane.id);
+
+                    // Подсветка выбранного крана
+                    document.querySelectorAll('.crane-item').forEach(item => {
+                        item.classList.remove('border-blue-500', 'bg-blue-100');
+                    });
+                    this.classList.add('border-blue-500', 'bg-blue-100');
+
+                    // Прокрутка к разделу деталей крана
+                    const craneDetailsSection = document.getElementById('craneDetailsSection');
+                    if (craneDetailsSection) {
+                        craneDetailsSection.scrollIntoView({ behavior: 'smooth' });
+
+                        // Добавление анимации подсветки
+                        craneDetailsSection.classList.add('highlight-crane');
+                        setTimeout(() => {
+                            craneDetailsSection.classList.remove('highlight-crane');
+                        }, 2000);
+                    }
+                });
+
+                craneListContainer.appendChild(craneElement);
+            });
+
+            // Подсветка первого крана по умолчанию
+            if (filteredCranes.length > 0) {
+                const firstCrane = document.querySelector(`.crane-item[data-id="${filteredCranes[0].id}"]`);
+                if (firstCrane) {
+                    firstCrane.classList.add('border-blue-500', 'bg-blue-100');
+                    // Загрузка деталей для первого крана по умолчанию
+                    currentCraneId = filteredCranes[0].id;
+                    loadCraneDetails(currentCraneId);
+                }
+            }
+        }
+
+        // Загрузка детальной информации для конкретного крана
+        function loadCraneDetails(craneId) {
+            const craneDetailsSection = document.getElementById('craneDetailsSection');
+            if (!craneDetailsSection) return;
+
+            const crane = mockData.cranes.find(c => c.id === craneId);
+            const details = mockData.craneDetails[craneId];
+
+            if (!crane || !details) return;
+
+            // Создание вкладок и содержимого
+            craneDetailsSection.innerHTML = `
+                <div class="p-4 border-b flex justify-between items-center">
+                    <h3 class="text-lg font-semibold">${crane.name} - Детальная информация</h3>
+                    <div class="flex space-x-2">
+                        <button class="px-3 py-1 bg-blue-500 text-white rounded-md text-sm flex items-center tooltip" data-tooltip="Создать отчет по крану">
+                            <i class="fas fa-file-pdf mr-1"></i> Отчет
+                        </button>
+                        <button class="px-3 py-1 bg-green-500 text-white rounded-md text-sm flex items-center tooltip" data-tooltip="Запустить диагностику">
+                            <i class="fas fa-tools mr-1"></i> Диагностика
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Вкладки -->
+                <div class="flex border-b">
+                    <button class="tab-btn px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-500" data-tab="tech-state">
+                        Техническое состояние
+                    </button>
+                    <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="repair-history">
+                        История ремонтов
+                    </button>
+                    <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="predictions">
+                        Прогнозы износа
+                    </button>
+                </div>
+
+                <!-- Содержимое вкладок -->
+                <div class="p-4">
+                    <!-- Вкладка технического состояния -->
+                    <div class="tab-content active" id="tech-state">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Основные параметры -->
+                            <div>
+                                <h4 class="font-medium mb-3">Основные параметры</h4>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Наработка (часы)</span>
+                                        <span class="font-medium">${details.hours.toLocaleString()}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Последний осмотр</span>
+                                        <span class="font-medium">${details.lastInspection}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Следующее ТО</span>
+                                        <span class="font-medium">${details.nextMaintenance}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Гарантия</span>
+                                        <span class="font-medium">${details.warranty}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Состояние узлов -->
+                            <div>
+                                <h4 class="font-medium mb-3">Состояние узлов</h4>
+                                <div class="space-y-3">
+                                    ${details.nodes.map(node => `
+                                        <div class="tooltip" data-tooltip="Текущее состояние узла ${node.name}">
+                                            <div class="flex justify-between mb-1">
+                                                <span class="text-gray-600">${node.name}</span>
+                                                <span class="font-medium">${node.condition}%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="h-2 rounded-full"
+                                                    style="width: ${node.condition}%;
+                                                    background-color: ${getConditionColor(node.condition)}">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- Ресурс крана -->
+                            <div>
+                                <h4 class="font-medium mb-3">Ресурс крана</h4>
+                                <div class="gauge">
+                                    <div class="gauge-body">
+                                        <div class="gauge-fill" style="transform: rotate(${0.5 + (details.resource / 200)}turn);"></div>
+                                        <div class="gauge-cover">${details.resource}%</div>
+                                    </div>
+                                </div>
+                                <p class="text-center text-sm text-gray-600 mt-2">Остаточный ресурс</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Вкладка истории ремонтов -->
+                    <div class="tab-content" id="repair-history">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Узел</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Тип</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Стоимость</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    ${details.repairHistory.map(repair => `
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${repair.date}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${repair.node}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${repair.type}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                    Завершено
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${repair.cost}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Вкладка прогнозов износа -->
+                    <div class="tab-content" id="predictions">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="font-medium mb-3">Прогноз износа узлов</h4>
+                                <div class="h-64">
+                                    <canvas id="wearPredictionChart"></canvas>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-medium mb-3">Рекомендации по замене</h4>
+                                <div class="space-y-4">
+                                    ${details.recommendations.map(rec => `
+                                        <div class="p-3 ${getRecommendationBg(rec.priority)} rounded-lg">
+                                            <div class="flex justify-between items-start">
+                                                <div>
+                                                    <p class="font-medium">${rec.part}</p>
+                                                    <p class="text-sm text-gray-600">Остаточный ресурс: ${rec.resource}%</p>
+                                                </div>
+                                                <div class="bg-white px-2 py-1 rounded text-xs font-medium">
+                                                    Замена через ${rec.replacement}
+                                                </div>
+                                            </div>
+                                            ${rec.priority === 'high' ? `
+                                            <div class="mt-2">
+                                                <button class="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 flex items-center tooltip" data-tooltip="Подготовить документы для заказа запчастей">
+                                                    <i class="fas fa-file-alt mr-1"></i> Подготовить документацию
+                                                </button>
+                                            </div>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Инициализация переключения вкладок для нового содержимого
+            initTabSwitching();
+
+            // Инициализация графика прогноза износа
+            initWearPredictionChart(details);
+
+            // Повторная инициализация подсказок для новых элементов
+            initTooltips();
+        }
+
+        // Получение цвета на основе процента состояния
+        function getConditionColor(percentage) {
+            if (percentage >= 70) return '#3B82F6'; // blue
+            if (percentage >= 40) return '#F59E0B'; // yellow
+            return '#EF4444'; // red
+        }
+
+        // Get background color based on recommendation priority
+        function getRecommendationBg(priority) {
+            switch(priority) {
+                case 'high': return 'bg-red-50';
+                case 'medium': return 'bg-yellow-50';
+                default: return 'bg-green-50';
+            }
+        }
+
+        // Initialize tab switching functionality
+        function initTabSwitching() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Remove active class from all tabs and contents
+                    document.querySelectorAll('.tab-btn').forEach(t => {
+                        t.classList.remove('border-b-2', 'border-blue-500', 'text-blue-600');
+                        t.classList.add('text-gray-500', 'hover:text-gray-700');
+                    });
+                    document.querySelectorAll('.tab-content').forEach(c => {
+                        c.classList.remove('active');
+                    });
+
+                    // Add active class to clicked tab
+                    btn.classList.add('border-b-2', 'border-blue-500', 'text-blue-600');
+                    btn.classList.remove('text-gray-500', 'hover:text-gray-700');
+
+                    // Show corresponding content
+                    const tabId = btn.getAttribute('data-tab');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+        }
+
+        // Initialize charts
+        function initCharts() {
+            // Crane Load Chart
+            const craneLoadCtx = document.getElementById('craneLoadChart')?.getContext('2d');
+            if (craneLoadCtx) {
+                new Chart(craneLoadCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+                        datasets: [
+                            {
+                                label: 'Часы работы/день',
+                                data: [6.5, 7.0, 7.5, 8.0, 7.8, 6.0, 5.5],
+                                borderColor: 'rgb(59, 130, 246)',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                tension: 0.3,
+                                fill: true,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: '% от нормы',
+                                data: [65, 70, 75, 80, 78, 60, 55],
+                                borderColor: 'rgb(239, 68, 68)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                tension: 0.3,
+                                fill: true,
+                                borderDash: [5, 5],
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Часы работы'
+                                },
+                                max: 10
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: '% от нормы'
+                                },
+                                max: 100,
+                                grid: {
+                                    drawOnChartArea: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Initialize analytics charts
+        function initAnalyticsCharts() {
+            // Monthly Load Chart
+            const monthlyLoadCtx = document.getElementById('monthlyLoadChart')?.getContext('2d');
+            if (monthlyLoadCtx) {
+                new Chart(monthlyLoadCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн'],
+                        datasets: [
+                            {
+                                label: 'Средняя нагрузка (%)',
+                                data: [65, 68, 72, 75, 70, 68],
+                                backgroundColor: 'rgba(59, 130, 246, 0.7)'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Downtime Chart
+            const downtimeCtx = document.getElementById('downtimeChart')?.getContext('2d');
+            if (downtimeCtx) {
+                new Chart(downtimeCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Плановое ТО', 'Ремонты', 'Отсутствие заказов', 'Прочие причины'],
+                        datasets: [{
+                            data: [45, 30, 15, 10],
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.7)',
+                                'rgba(239, 68, 68, 0.7)',
+                                'rgba(16, 185, 129, 0.7)',
+                                'rgba(156, 163, 175, 0.7)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            }
+
+            // Wear Trend Chart
+            const wearTrendCtx = document.getElementById('wearTrendChart')?.getContext('2d');
+            if (wearTrendCtx) {
+                new Chart(wearTrendCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн'],
+                        datasets: [
+                            {
+                                label: 'Кран #12',
+                                data: [12, 13, 14, 15, 16, 18],
+                                borderColor: 'rgb(59, 130, 246)',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                tension: 0.3,
+                                fill: true
+                            },
+                            {
+                                label: 'Кран #15',
+                                data: [35, 38, 40, 42, 43, 45],
+                                borderColor: 'rgb(239, 68, 68)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                tension: 0.3,
+                                fill: true
+                            },
+                            {
+                                label: 'Кран #18',
+                                data: [22, 23, 25, 26, 27, 28],
+                                borderColor: 'rgb(16, 185, 129)',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                tension: 0.3,
+                                fill: true
+                            },
+                            {
+                                label: 'Кран #21',
+                                data: [28, 30, 32, 33, 34, 34],
+                                borderColor: 'rgb(245, 158, 11)',
+                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                tension: 0.3,
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Problem Nodes Chart
+            const problemNodesCtx = document.getElementById('problemNodesChart')?.getContext('2d');
+            if (problemNodesCtx) {
+                new Chart(problemNodesCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Тормоза', 'Гидравлика', 'Электроника', 'Редуктор', 'Ходовая'],
+                        datasets: [{
+                            label: 'Количество поломок',
+                            data: [12, 8, 5, 4, 3],
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        scales: {
+                            x: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Repair Types Chart
+            const repairTypesCtx = document.getElementById('repairTypesChart')?.getContext('2d');
+            if (repairTypesCtx) {
+                new Chart(repairTypesCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Плановые', 'Аварийные', 'Замена запчастей'],
+                        datasets: [{
+                            data: [45, 30, 25],
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.7)',
+                                'rgba(239, 68, 68, 0.7)',
+                                'rgba(245, 158, 11, 0.7)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            }
+
+            // Maintenance Effect Chart
+            const maintenanceEffectCtx = document.getElementById('maintenanceEffectChart')?.getContext('2d');
+            if (maintenanceEffectCtx) {
+                new Chart(maintenanceEffectCtx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['Надежность', 'Производительность', 'Безопасность', 'Экономичность', 'Ресурс'],
+                        datasets: [
+                            {
+                                label: 'До ТО',
+                                data: [65, 59, 70, 50, 60],
+                                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                                borderColor: 'rgba(59, 130, 246, 1)',
+                                pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                                pointBorderColor: '#fff',
+                                pointHoverBackgroundColor: '#fff',
+                                pointHoverBorderColor: 'rgba(59, 130, 246, 1)'
+                            },
+                            {
+                                label: 'После ТО',
+                                data: [85, 80, 90, 75, 85],
+                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                borderColor: 'rgba(16, 185, 129, 1)',
+                                pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+                                pointBorderColor: '#fff',
+                                pointHoverBackgroundColor: '#fff',
+                                pointHoverBorderColor: 'rgba(16, 185, 129, 1)'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                angleLines: {
+                                    display: true
+                                },
+                                suggestedMin: 0,
+                                suggestedMax: 100
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Initialize wear prediction chart for a specific crane
+        function initWearPredictionChart(details) {
+            const wearPredictionCtx = document.getElementById('wearPredictionChart')?.getContext('2d');
+            if (!wearPredictionCtx) return;
+
+            new Chart(wearPredictionCtx, {
+                type: 'bar',
+                data: {
+                    labels: details.wearPredictions.map(p => p.node),
+                    datasets: [
+                        {
+                            label: 'Текущий износ',
+                            data: details.wearPredictions.map(p => p.current),
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)'
+                        },
+                        {
+                            label: 'Прогноз через 3 мес.',
+                            data: details.wearPredictions.map(p => p.prediction),
+                            backgroundColor: 'rgba(239, 68, 68, 0.7)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Износ (%)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize calendar
+        function initCalendar() {
+            renderCalendar();
+
+            // Add event listeners for prev/next month buttons
+            document.getElementById('prevMonth')?.addEventListener('click', function() {
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                renderCalendar();
+                loadUpcomingEvents();
+            });
+
+            document.getElementById('nextMonth')?.addEventListener('click', function() {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                renderCalendar();
+                loadUpcomingEvents();
+            });
+        }
+
+        // Render calendar for the current month
+        function renderCalendar() {
+            const calendarDays = document.getElementById('calendarDays');
+            const currentMonthYear = document.getElementById('currentMonthYear');
+
+            if (!calendarDays || !currentMonthYear) return;
+
+            // Set month and year title
+            const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+                               "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+            currentMonthYear.textContent = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+
+            // Get first day of month and total days in month
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            const daysInMonth = lastDay.getDate();
+
+            // Get day of week for first day (0 - Sunday, 1 - Monday, etc.)
+            let firstDayOfWeek = firstDay.getDay();
+            // Convert to Monday as first day (0)
+            firstDayOfWeek = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+
+            // Get days from previous month to show
+            const prevMonthLastDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0).getDate();
+            let prevDaysToShow = firstDayOfWeek;
+
+            // Clear calendar
+            calendarDays.innerHTML = '';
+
+            // Add days from previous month
+            for (let i = prevDaysToShow; i > 0; i--) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'py-1 text-gray-400';
+                dayElement.textContent = prevMonthLastDay - i + 1;
+                calendarDays.appendChild(dayElement);
+            }
+
+            // Add days from current month
+            const today = new Date();
+            const isCurrentMonth = currentDate.getMonth() === today.getMonth() &&
+                                 currentDate.getFullYear() === today.getFullYear();
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'py-1 cursor-pointer hover:bg-gray-100 rounded-full';
+
+                // Highlight today
+                if (isCurrentMonth && i === today.getDate()) {
+                    dayElement.classList.add('bg-blue-100', 'font-medium');
+                }
+
+                // Check if this day has maintenance events
+                const eventDate = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${i.toString().padStart(2, '0')}`;
+                const hasEvent = mockData.maintenanceEvents.some(event => event.date === eventDate);
+
+                if (hasEvent) {
+                    const event = mockData.maintenanceEvents.find(event => event.date === eventDate);
+                    let bgClass = '';
+                    if (event.type === 'planned') bgClass = 'bg-blue-100';
+                    else if (event.type === 'parts') bgClass = 'bg-yellow-100';
+                    else if (event.type === 'emergency') bgClass = 'bg-red-100';
+
+                    dayElement.classList.add(bgClass, 'rounded-full');
+                }
+
+                dayElement.textContent = i;
+                calendarDays.appendChild(dayElement);
+            }
+
+            // Calculate total cells (7 columns x 6 rows = 42)
+            const totalCells = 42;
+            const cellsUsed = prevDaysToShow + daysInMonth;
+            const nextDaysToShow = totalCells - cellsUsed;
+
+            // Add days from next month
+            for (let i = 1; i <= nextDaysToShow; i++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'py-1 text-gray-400';
+                dayElement.textContent = i;
+                calendarDays.appendChild(dayElement);
+            }
+        }
+
+        // Load upcoming maintenance events
+        function loadUpcomingEvents() {
+            const upcomingEvents = document.getElementById('upcomingEvents');
+            if (!upcomingEvents) return;
+
+            // Filter events for the current month
+            const currentMonth = currentDate.getMonth();
+            const currentYear = currentDate.getFullYear();
+
+            const eventsThisMonth = mockData.maintenanceEvents.filter(event => {
+                const eventDate = new Date(event.date);
+                return eventDate.getMonth() === currentMonth &&
+                       eventDate.getFullYear() === currentYear;
+            }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            // Clear container
+            upcomingEvents.innerHTML = '';
+
+            if (eventsThisMonth.length === 0) {
+                upcomingEvents.innerHTML = '<p class="text-gray-500 text-center py-4">Нет запланированных мероприятий</p>';
+                return;
+            }
+
+            // Add events to the list
+            eventsThisMonth.forEach(event => {
+                const eventDate = new Date(event.date);
+                const daysLeft = Math.floor((eventDate - new Date()) / (1000 * 60 * 60 * 24));
+                const daysLeftText = daysLeft > 0 ? `(через ${daysLeft} дней)` : '(сегодня)';
+
+                const statusClasses = {
+                    scheduled: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Запланировано' },
+                    parts_required: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Требуются запчасти' },
+                    completed: { bg: 'bg-green-100', text: 'text-green-800', label: 'Завершено' }
+                };
+
+                const status = statusClasses[event.status] || statusClasses.scheduled;
+
+                const eventElement = document.createElement('div');
+                eventElement.className = 'p-3 border rounded-lg';
+                eventElement.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-medium">${event.title}</p>
+                            <p class="text-sm text-gray-600">${formatDate(event.date)} ${daysLeftText}</p>
+                        </div>
+                        <div class="${status.bg} ${status.text} px-2 py-1 rounded-full text-xs">
+                            ${status.label}
+                        </div>
+                    </div>
+                    <div class="mt-2 text-sm">
+                        <p>${event.description}</p>
+                        <p class="text-gray-600 mt-1">Необходимые запчасти: ${event.parts}</p>
+                    </div>
+                    <div class="mt-3 flex space-x-2">
+                        <button class="px-3 py-1 bg-blue-500 text-white rounded-md text-sm flex items-center tooltip" data-tooltip="Создать документы для ТО">
+                            <i class="fas fa-file-alt mr-1"></i> Документация
+                        </button>
+                        <button class="px-3 py-1 bg-gray-100 rounded-md text-sm hover:bg-gray-200">
+                            ${event.status === 'completed' ? 'Подробнее' : 'Перенести'}
+                        </button>
+                    </div>
+                `;
+
+                upcomingEvents.appendChild(eventElement);
+            });
+
+            // Reinitialize tooltips for new elements
+            initTooltips();
+        }
+
+        // Load failure logs
+        function loadFailureLogs() {
+            const failureLogsContainer = document.getElementById('failureLogsContainer');
+            if (!failureLogsContainer) return;
+
+            // Clear container
+            failureLogsContainer.innerHTML = '';
+
+            // Add logs to the list (sorted by date descending)
+            const sortedLogs = [...mockData.failureLogs].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            if (sortedLogs.length === 0) {
+                failureLogsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">Нет записей в журнале</p>';
+                return;
+            }
+
+            sortedLogs.forEach(log => {
+                const logTypeClasses = {
+                    error: { bg: 'bg-red-100', icon: 'fa-exclamation-triangle', iconColor: 'text-red-500' },
+                    warning: { bg: 'bg-yellow-100', icon: 'fa-exclamation-circle', iconColor: 'text-yellow-500' },
+                    info: { bg: 'bg-blue-100', icon: 'fa-info-circle', iconColor: 'text-blue-500' }
+                };
+
+                const type = logTypeClasses[log.type] || logTypeClasses.info;
+                const crane = mockData.cranes.find(c => c.id === log.craneId);
+                const craneName = crane ? crane.name : 'Неизвестный кран';
+
+                const logElement = document.createElement('div');
+                logElement.className = 'flex items-start p-3 bg-white border rounded-lg';
+                logElement.innerHTML = `
+                    <div class="flex-shrink-0 mt-1">
+                        <div class="w-8 h-8 ${type.bg} rounded-full flex items-center justify-center">
+                            <i class="fas ${type.icon} ${type.iconColor}"></i>
+                        </div>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <div class="flex justify-between">
+                            <h4 class="text-sm font-medium text-gray-800">${log.title} ${craneName ? `(${craneName})` : ''}</h4>
+                            <span class="text-xs text-gray-500">${formatDateTime(log.date)}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1">${log.description}</p>
+                        <div class="mt-2 flex space-x-2">
+                            <button class="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 tooltip" data-tooltip="Отметить как решенное">
+                                <i class="fas fa-check mr-1"></i> Решено
+                            </button>
+                            <button class="text-xs bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 tooltip" data-tooltip="Добавить комментарий">
+                                <i class="fas fa-comment mr-1"></i> Комментарий
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                failureLogsContainer.appendChild(logElement);
+            });
+
+            // Reinitialize tooltips for new elements
+            initTooltips();
+        }
+
+        // Initialize time period buttons
+        function initTimePeriodButtons() {
+            document.querySelectorAll('.time-period-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Remove active class from all buttons
+                    document.querySelectorAll('.time-period-btn').forEach(b => {
+                        b.classList.remove('bg-blue-500', 'text-white');
+                        b.classList.add('bg-gray-100');
+                    });
+
+                    // Add active class to clicked button
+                    this.classList.add('bg-blue-500', 'text-white');
+                    this.classList.remove('bg-gray-100');
+
+                    // Here you would typically load data for the selected period
+                    const period = this.dataset.period;
+                    console.log(`Loading data for period: ${period}`);
+                });
+            });
+        }
+
+        // Initialize location filter
+        function initLocationFilter() {
+            document.getElementById('locationFilter')?.addEventListener('change', function() {
+                loadCraneList();
+            });
+        }
+
+        // Load reports data
+        function loadReportsData() {
+            const reportsTable = document.getElementById('reportsTable');
+            if (!reportsTable) return;
+
+            reportsTable.innerHTML = mockData.reports.map(report => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${report.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${report.type.toUpperCase()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${report.period}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${report.created}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${report.author}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <button class="text-blue-500 hover:text-blue-700 mr-3 flex items-center tooltip" data-tooltip="Экспорт отчета">
+                            <i class="fas fa-download mr-1"></i> Экспорт
+                        </button>
+                        <button class="text-red-500 hover:text-red-700 flex items-center tooltip" data-tooltip="Удалить отчет">
+                            <i class="fas fa-trash mr-1"></i> Удалить
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            // Reinitialize tooltips for new elements
+            initTooltips();
+        }
+
+        // Load diagnostics data
+        function loadDiagnosticsData() {
+            const diagnosticsTable = document.getElementById('diagnosticsTable');
+            if (!diagnosticsTable) return;
+
+            diagnosticsTable.innerHTML = mockData.diagnostics.map(diag => {
+                const crane = mockData.cranes.find(c => c.id === diag.craneId);
+                const craneName = crane ? crane.name : 'Неизвестный кран';
+
+                const resultClasses = {
+                    success: { bg: 'bg-green-100', text: 'text-green-800', label: 'Успешно' },
+                    warning: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Предупреждение' },
+                    error: { bg: 'bg-red-100', text: 'text-red-800', label: 'Ошибка' }
+                };
+
+                const result = resultClasses[diag.result] || resultClasses.success;
+
+                return `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${craneName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(diag.date)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${diag.type === 'full' ? 'Полная диагностика' :
+                          diag.type === 'hydraulic' ? 'Гидравлика' :
+                          diag.type === 'electrical' ? 'Электрика' : 'Механическая'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${result.bg} ${result.text}">
+                            ${result.label}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <button class="text-blue-500 hover:text-blue-700 mr-3 flex items-center tooltip" data-tooltip="Подробная информация">
+                            <i class="fas fa-info-circle mr-1"></i> Подробнее
+                        </button>
+                        <button class="text-red-500 hover:text-red-700 flex items-center tooltip" data-tooltip="Удалить запись">
+                            <i class="fas fa-trash mr-1"></i> Удалить
+                        </button>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+
+            // Reinitialize tooltips for new elements
+            initTooltips();
+        }
+
+        // Load maintenance data
+        function loadMaintenanceData() {
+            const maintenanceTable = document.getElementById('maintenanceTable');
+            const upcomingMaintenance = document.getElementById('upcomingMaintenance');
+            const partsRequired = document.getElementById('partsRequired');
+            const maintenanceHistory = document.getElementById('maintenanceHistory');
+
+            if (maintenanceTable) {
+                maintenanceTable.innerHTML = mockData.maintenanceEvents.map(event => {
+                    const crane = mockData.cranes.find(c => c.id === event.craneId);
+                    const craneName = crane ? crane.name : 'Неизвестный кран';
+
+                    const typeClasses = {
+                        planned: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Плановое ТО' },
+                        parts: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Замена запчастей' },
+                        emergency: { bg: 'bg-red-100', text: 'text-red-800', label: 'Аварийный ремонт' }
+                    };
+
+                    const statusClasses = {
+                        scheduled: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Запланировано' },
+                        parts_required: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Требуются запчасти' },
+                        completed: { bg: 'bg-green-100', text: 'text-green-800', label: 'Завершено' }
+                    };
+
+                    const type = typeClasses[event.type] || typeClasses.planned;
+                    const status = statusClasses[event.status] || statusClasses.scheduled;
+
+                    return `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${craneName}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${type.bg} ${type.text}">
+                                ${type.label}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(event.date)}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${event.description}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${status.bg} ${status.text}">
+                                ${status.label}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <button class="text-blue-500 hover:text-blue-700 mr-3 flex items-center tooltip" data-tooltip="Подробная информация">
+                                <i class="fas fa-info-circle mr-1"></i> Подробнее
+                            </button>
+                            <button class="text-red-500 hover:text-red-700 flex items-center tooltip" data-tooltip="Удалить запись">
+                                <i class="fas fa-trash mr-1"></i> Удалить
+                            </button>
+                        </td>
+                    </tr>
+                    `;
+                }).join('');
+
+                // Reinitialize tooltips for new elements
+                initTooltips();
+            }
+
+            if (upcomingMaintenance) {
+                const upcoming = mockData.maintenanceEvents
+                    .filter(e => new Date(e.date) >= new Date())
+                    .sort((a, b) => new Date(a.date) - new Date(b.date))
+                    .slice(0, 3);
+
+                upcomingMaintenance.innerHTML = upcoming.length > 0 ?
+                    upcoming.map(event => {
+                        const crane = mockData.cranes.find(c => c.id === event.craneId);
+                        return `
+                        <div class="p-2 border-b">
+                            <p class="font-medium text-sm">${crane?.name || 'Неизвестный кран'}</p>
+                            <p class="text-xs text-gray-600">${formatDate(event.date)} - ${event.title}</p>
+                            <div class="mt-1">
+                                <button class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 tooltip" data-tooltip="Подробности ТО">
+                                    <i class="fas fa-info-circle mr-1"></i> Подробнее
+                                </button>
+                            </div>
+                        </div>
+                        `;
+                    }).join('') :
+                    '<p class="text-gray-500 text-center py-2 text-sm">Нет предстоящих ТО</p>';
+
+                // Reinitialize tooltips for new elements
+                initTooltips();
+            }
+
+            if (partsRequired) {
+                const parts = mockData.maintenanceEvents
+                    .filter(e => e.status === 'parts_required')
+                    .slice(0, 3);
+
+                partsRequired.innerHTML = parts.length > 0 ?
+                    parts.map(event => {
+                        const crane = mockData.cranes.find(c => c.id === event.craneId);
+                        return `
+                        <div class="p-2 border-b">
+                            <p class="font-medium text-sm">${crane?.name || 'Неизвестный кран'}</p>
+                            <p class="text-xs text-gray-600">${event.parts}</p>
+                            <div class="mt-1">
+                                <button class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 tooltip" data-tooltip="Заказать запчасти">
+                                    <i class="fas fa-shopping-cart mr-1"></i> Заказать
+                                </button>
+                            </div>
+                        </div>
+                        `;
+                    }).join('') :
+                    '<p class="text-gray-500 text-center py-2 text-sm">Нет запчастей в ожидании</p>';
+
+                // Reinitialize tooltips for new elements
+                initTooltips();
+            }
+
+            if (maintenanceHistory) {
+                const history = [...mockData.maintenanceEvents]
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .slice(0, 3);
+
+                maintenanceHistory.innerHTML = history.length > 0 ?
+                    history.map(event => {
+                        const crane = mockData.cranes.find(c => c.id === event.craneId);
+                        return `
+                        <div class="p-2 border-b">
+                            <p class="font-medium text-sm">${crane?.name || 'Неизвестный кран'}</p>
+                            <p class="text-xs text-gray-600">${formatDate(event.date)} - ${event.title}</p>
+                            <div class="mt-1">
+                                <button class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 tooltip" data-tooltip="Подробности ТО">
+                                    <i class="fas fa-info-circle mr-1"></i> Подробнее
+                                </button>
+                            </div>
+                        </div>
+                        `;
+                    }).join('') :
+                    '<p class="text-gray-500 text-center py-2 text-sm">Нет истории ТО</p>';
+
+                // Reinitialize tooltips for new elements
+                initTooltips();
+            }
+        }
+
+        // Load technical state data
+        function loadTechnicalStateData() {
+            const craneStatusTable = document.getElementById('craneStatusTable');
+            if (!craneStatusTable) return;
+
+            craneStatusTable.innerHTML = mockData.cranes.map(crane => {
+                const details = mockData.craneDetails[crane.id];
+                const statusClasses = {
+                    working: { bg: 'bg-green-100', text: 'text-green-800', label: 'Работает' },
+                    idle: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Простой' },
+                    repair: { bg: 'bg-red-100', text: 'text-red-800', label: 'Ремонт' }
+                };
+
+                const status = statusClasses[crane.status] || statusClasses.working;
+
+                return `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${crane.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${crane.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${crane.location}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${details?.hours.toLocaleString() || '0'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${crane.wear}%</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${status.bg} ${status.text}">
+                            ${status.label}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <button class="text-blue-500 hover:text-blue-700 mr-3 flex items-center tooltip" data-tooltip="Запустить диагностику">
+                            <i class="fas fa-tools mr-1"></i> Диагностика
+                        </button>
+                        <button class="text-green-500 hover:text-green-700 flex items-center tooltip" data-tooltip="Создать отчет">
+                            <i class="fas fa-file-alt mr-1"></i> Отчет
+                        </button>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+
+            // Reinitialize tooltips for new elements
+            initTooltips();
+        }
+
+        // Helper function to format date as DD.MM.YYYY
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}.${month}.${year}`;
+        }
+
+        // Helper function to format date and time
+        function formatDateTime(dateTimeString) {
+            const date = new Date(dateTimeString);
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            return `${day}.${month}.${year} ${hours}:${minutes}`;
+        }
+        // Функция для определения положения подсказки
+        function setupTooltips() {
+            document.querySelectorAll('.tooltip').forEach(element => {
+                const tooltipText = element.querySelector('.tooltip-text');
+                if (!tooltipText) return;
+
+                // Проверяем положение элемента на экране
+                const rect = element.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const spaceAbove = rect.top;
+                const tooltipHeight = 30; // Примерная высота подсказки
+
+                // Если места снизу мало, а сверху достаточно - показываем сверху
+                if (spaceBelow < tooltipHeight && spaceAbove >= tooltipHeight) {
+                    tooltipText.classList.add('top');
+                } else {
+                    tooltipText.classList.remove('top');
+                }
+            });
+        }
+
+        // Инициализация при загрузке и при изменении размера окна
+        document.addEventListener('DOMContentLoaded', function() {
+            setupTooltips();
+            window.addEventListener('resize', setupTooltips);
+        });
+    </script>
+</body>
+</html>
